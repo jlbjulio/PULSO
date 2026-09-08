@@ -1,0 +1,50 @@
+{
+  "root": "models",
+  "runtime": {
+    "provider": "qvac",
+    "inference_mode": "local_or_p2p",
+    "allow_cloud_inference": false
+  },
+  "models": {
+    "clinical_extraction": {
+      "path": "models/clinical/medpsy-4b-q4_k_m-imat.gguf",
+      "qvac_model_type": "llamacpp-completion"
+    },
+    "transcription": {
+      "path": "models/speech/whisper-small-q8_0.bin",
+      "vad_path": "models/speech/silero-vad-5.1.2.bin",
+      "qvac_model_type": "whispercpp-transcription"
+    },
+    "speaker_diarization": {
+      "path": "models/speech/sortformer-4spk-v2.1-q4_0.gguf",
+      "qvac_model_type": "parakeet-transcription"
+    },
+    "translation": {
+      "euro": "models/translation/euro",
+      "afri": "models/translation/afri",
+      "qvac_model_type": "nmtcpp-translation",
+      "runtime": "@qvac/translation-nmtcpp",
+      "pivot_language": "en",
+      "target_language": "es",
+      "euro_languages": ["de", "es", "fr", "it", "pt", "fi", "cs", "nl", "sv"],
+      "afri_languages": ["am", "ha", "ig", "ln", "so", "sw", "yo", "zu"]
+    },
+    "ocr": {
+      "recognizer_path": "models/ocr/latin-g2.gguf",
+      "detector_path": "models/ocr/craft-mlt-25k.gguf",
+      "qvac_model_type": "ggml-ocr"
+    },
+    "rag_embeddings": {
+      "path": "models/embeddings/embeddinggemma-300m-q4_0.gguf",
+      "qvac_model_type": "llamacpp-embedding"
+    },
+    "speech": {
+      "path": "models/speech/supertonic3-q4_0.gguf",
+      "qvac_model_type": "tts-ggml",
+      "model_config": {
+        "ttsEngine": "supertonic",
+        "language": "es"
+      }
+    }
+  }
+}

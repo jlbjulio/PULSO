@@ -1,0 +1,12 @@
+tetherto-qvac-sdk==0.19.0
+flet==0.86.5
+flet-cli==0.86.5
+flet-desktop==0.86.5
+pytest==8.3.2
+ruff==0.12.11
+pydantic==2.13.4
+typing-extensions==4.16.0
+PyMuPDF==1.28.2
+langdetect==1.0.9
+tensorboard==2.21.0
+tensorboardX==2.6.5

@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pulso.local/schemas/rag-verification.schema.json",
+  "title": "PULSO RAG verification result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "status",
+    "workspace",
+    "normalized_terms",
+    "missing_fields",
+    "warnings",
+    "citations",
+    "next_action",
+    "clinical_decision_authority"
+  ],
+  "properties": {
+    "event_id": { "type": "string", "pattern": "^e[0-9]+$" },
+    "status": {
+      "type": "string",
+      "enum": ["supported", "incomplete", "conflicting", "not_found", "not_applicable"]
+    },
+    "workspace": {
+      "type": ["string", "null"],
+      "enum": [
+        "pulso-emergency-ops",
+        "pulso-medication-safety",
+        "pulso-panama-clinical",
+        "pulso-fhir-interop",
+        "pulso-panama-governance",
+        null
+      ]
+    },
+    "normalized_terms": { "type": "object" },
+    "missing_fields": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "chunk_id", "locator"],
+        "properties": {
+          "source_id": { "type": "string", "minLength": 1 },
+          "chunk_id": { "type": "string", "minLength": 1 },
+          "locator": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "enum": ["allow_confirmation", "require_clarification", "manual_review", "no_retrieval"]
+    },
+    "clinical_decision_authority": { "const": "clinician" }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "format": "qvac-sft-messages-jsonl",
+  "synthetic": true,
+  "contains_real_patient_data": false,
+  "clinical_decision_training": false,
+  "task": "clinical_event_extraction_and_state_classification",
+  "output_schema": "../../schemas/clinical-events.schema.json",
+  "splits": {
+    "train": 285,
+    "validation": 57,
+    "test": 57
+  },
+  "scenario_families": [
+    "symptom",
+    "allergy_history",
+    "medication_replacement",
+    "complete_medication_order",
+    "incomplete_medication_order",
+    "closed_loop_administration",
+    "imaging_order",
+    "lab_order",
+    "procedure",
+    "diagnosis",
+    "code_blue",
+    "consult_transfer",
+    "result_reassessment",
+    "ambient",
+    "correction",
+    "multilingual",
+    "disposition",
+    "vital_sign",
+    "handoff"
+  ],
+  "generated_on": "2026-09-01"
+}

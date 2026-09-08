@@ -1,0 +1,31 @@
+{
+  "name": "pulso-qvac",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Base tecnica QVAC del orquestador clinico local PULSO",
+  "scripts": {
+    "setup": "python tools/prepare_environment.py",
+    "models:download": "node tools/download-models.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "format:check": "prettier --check package.json tsconfig.json \".github/**/*.yml\" \"tools/**/*.js\"",
+    "test": "vitest run --passWithNoTests && python -m pytest -q",
+    "check": "npm run lint && npm run typecheck && npm run format:check && python -m ruff check . && npm test"
+  },
+  "dependencies": {
+    "@qvac/sdk": "0.19.0",
+    "@qvac/translation-nmtcpp": "0.13.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.3.0",
+    "eslint": "10.9.1",
+    "globals": "17.11.0",
+    "prettier": "3.9.6",
+    "tsx": "4.23.12",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}

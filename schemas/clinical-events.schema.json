@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pulso.local/schemas/clinical-events.schema.json",
+  "title": "PULSO clinical event extraction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["events", "ignored_utterance_ids", "session_flags"],
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/event" }
+    },
+    "ignored_utterance_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "session_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "ambiguous_speaker",
+          "audio_uncertain",
+          "conflicting_statements",
+          "critical_event",
+          "language_switch",
+          "missing_patient_context"
+        ]
+      },
+      "uniqueItems": true
+    }
+  },
+  "definitions": {
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "type",
+        "state",
+        "actor_role",
+        "patient_ref",
+        "evidence_utterance_ids",
+        "payload",
+        "actionable",
+        "confirmation_required",
+        "missing_fields",
+        "rag_required"
+      ],
+      "properties": {
+        "event_id": { "type": "string", "pattern": "^e[0-9]+$" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "patient_report",
+            "symptom",
+            "allergy",
+            "medication_history",
+            "vital_sign",
+            "exam_finding",
+            "clinical_assessment",
+            "diagnosis",
+            "medication_order",
+            "medication_administration",
+            "procedure_order",
+            "procedure_performed",
+            "lab_order",
+            "imaging_order",
+            "consult_order",
+            "result",
+            "code_event",
+            "transfer",
+            "disposition",
+            "handoff"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "reported",
+            "observed",
+            "considered",
+            "planned",
+            "pending_confirmation",
+            "confirmed",
+            "in_progress",
+            "administered",
+            "completed",
+            "cancelled",
+            "denied",
+            "unknown"
+          ]
+        },
+        "actor_role": {
+          "type": "string",
+          "enum": ["patient", "physician", "nurse", "paramedic", "family", "system", "unknown"]
+        },
+        "patient_ref": { "type": ["string", "null"] },
+        "evidence_utterance_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "payload": { "type": "object" },
+        "actionable": { "type": "boolean" },
+        "confirmation_required": { "type": "boolean" },
+        "missing_fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "rag_required": { "type": "boolean" },
+        "supersedes_event_id": {
+          "type": ["string", "null"],
+          "pattern": "^e[0-9]+$"
+        }
+      }
+    }
+  }
+}
