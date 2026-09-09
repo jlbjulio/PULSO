@@ -34,57 +34,58 @@ El RAG local se activa cuando el médico pide una verificación o una regla marc
 
 Durante una reanimación, PULSO registra una línea temporal candidata y silencia preguntas que puedan distraer. La conciliación se realiza cuando el equipo indica un momento seguro. Los sistemas oficiales del hospital siguen siendo la vía principal para alarmas y convocatorias.
 
-## Modelos
+## IA local y modelos
 
-| Función | Modelo |
+Las operaciones principales de inferencia y RAG se implementarán con `@qvac/sdk` 0.19.0 y modelos locales. TranslatePsy utiliza el runtime local `@qvac/translation-nmtcpp`. No existe fallback hacia APIs de inferencia en la nube.
+
+| Función | Modelo y cuantización |
 | --- | --- |
-| Extracción clínica | MedPsy 4B Q4_K_M con *imatrix* |
-| Transcripción | Whisper Small Q8 + Silero VAD |
-| Separación de voces | Sortformer 4SPK v2.1 Q4 |
-| Traducción | TranslatePsy EuroNano + AfriNano |
-| Documentos | OCR Latin |
-| Fuentes clínicas | EmbeddingGemma 300M Q4 + RAG de QVAC |
-| Voz | Supertonic 3 Q4 |
+| Extracción de eventos | `qvac/MedPsy-4B-GGUF` — `medpsy-4b-q4_k_m-imat.gguf` |
+| Traducción | `qvac/TranslatePsy-EuroNano` y `qvac/TranslatePsy-AfriNano` — INTGEMM |
+| Transcripción | Whisper Small Q8_0 + Silero VAD 5.1.2 |
+| Separación de voces | Sortformer 4SPK v2.1 Q4_0 |
+| Documentos | OCR Latin G2 + detector CRAFT |
+| RAG local | EmbeddingGemma 300M Q4_0 |
+| Voz | Supertonic 3 Q4_0 |
 
-Los modelos se cargan según la tarea para trabajar dentro de los 4 GB de VRAM disponibles. Audio, documentos, índices y pesos permanecen en la infraestructura local. No hay fallback de inferencia en la nube.
+MedPsy es el modelo Psy central: transforma únicamente evidencia explícita en eventos clínicos estructurados. TranslatePsy participa cuando existe una barrera de idioma. Los modelos se cargan según la tarea para respetar los 4 GB de VRAM del equipo de demostración.
 
-## Entorno
+## Seguridad y limitaciones
 
-El equipo preparado tiene Python 3.11, Node.js 24, QVAC SDK 0.19.0, QVAC CLI 0.13.0, Flet 0.86.5, FFmpeg 9 y los modelos descargados. No crea ni utiliza `.venv`.
+PULSO es un prototipo de apoyo operativo, no un sistema autónomo de diagnóstico ni un dispositivo médico validado. No prescribe, no decide tratamientos y no ejecuta órdenes por sí solo. Toda orden exige intención explícita, confirmación de lazo cerrado, identidad profesional y firma. Una salida incierta conserva la evidencia y pasa a revisión humana.
 
-Los pesos están organizados en `models/` y sus rutas se encuentran en `config/models.json`. Las fuentes clínicas de `data/rag/fuentes/` se distribuyen con el repositorio; únicamente los pesos permanecen fuera de Git.
+El sistema no sustituye los canales oficiales de emergencia, los protocolos del hospital ni a un intérprete clínico cuando sea necesario. La demostración utiliza datos sintéticos y no incluye información real de pacientes.
+
+## Entorno reproducible
+
+- Windows 11 Home Single Language 10.0.26200.
+- AMD Ryzen 7 5800H, 15.3 GB de RAM y NVIDIA RTX 3050 Laptop de 4 GB.
+- Node.js 24, npm 11, Python 3.11, QVAC SDK 0.19.0 y QVAC CLI 0.13.0.
+- Sin entornos virtuales de Python.
 
 ```console
 python tools/prepare_environment.py
 ```
 
-Para ejecutar el fine-tuning LoRA cuando corresponda:
+Los pesos se descargan y verifican mediante `tools/download-models.js`, se almacenan en `models/` y permanecen fuera de Git. Las rutas esperadas están declaradas en `config/models.json`.
 
-```console
-python training/train_lora.py
-```
+## Datos y componentes externos
 
-## Estructura
+- Los conjuntos SFT contienen 285 casos de entrenamiento, 57 de validación y 57 de prueba; todos son sintéticos y no entrenan decisiones clínicas.
+- Las fuentes de WHO, MINSA Panamá y HL7 se identifican individualmente en `data/rag/manifest.json` y `data/rag/fuentes.csv`.
+- QVAC SDK, QVAC CLI, los modelos QVAC/Tether, Flet, PyMuPDF, Pydantic, FFmpeg, TensorBoard y las demás dependencias conservan sus licencias y atribuciones originales.
+- La licencia MIT cubre únicamente el código propio de PULSO; los documentos, modelos y demás materiales de terceros conservan sus términos originales.
+- No se utilizan APIs remotas de IA. Cualquier servicio remoto futuro, incluso si no realiza inferencia, deberá declararse aquí.
 
-```text
-pulso-qvac/
-├── assets/              Recursos de la interfaz
-├── config/              Servicios, permisos y códigos del hospital
-├── data/                Evaluación, fine-tuning y fuentes clínicas
-├── migrations/          Cambios de SQLite
-├── models/              Pesos locales de QVAC
-├── schemas/             Contratos de eventos
-├── training/            Fine-tuning LoRA y resultados locales
-├── src/pulso/
-│   ├── application/     Casos de uso y coordinación
-│   ├── domain/          Eventos, órdenes y reglas
-│   ├── infrastructure/  QVAC, SQLite, P2P y enrutamiento
-│   └── ui/              Vistas y componentes Flet
-└── tests/               Pruebas y fixtures
-```
+## Base preexistente
 
-## Tecnologías y atribuciones
+El proyecto partió de los siguientes elementos preexistentes:
 
-QVAC CLI, los clientes JS/Python y los modelos QVAC pertenecen a Tether. Las fuentes de WHO, MINSA Panamá y HL7 están identificadas en `data/rag/manifest.json`. Las dependencias conservan versiones fijas en los archivos del repositorio.
+| Elemento | Origen | Uso |
+| --- | --- | --- |
+| Repositorio inicial  | Julio Lara | `.gitignore`, licencia y README inicial |
+| Preparación técnica  | Julio Lara | Arquitectura de carpetas, stubs Python, configuración, dependencias, herramientas de entorno y descarga, esquemas, pruebas, corpus RAG, casos sintéticos y script de preparación LoRA |
+| Fuentes clínicas y técnicas | WHO, MINSA Panamá y HL7 | Corpus local de consulta; origen y ubicación registrados en el manifiesto |
+| Modelos locales | QVAC, Tether AI Research y registro oficial del SDK | Preparación del equipo; pesos excluidos de Git |
 
-La base preexistente fue preparada por Julio Lara e incluye esta estructura, las dependencias, contratos de eventos, datos sintéticos y pruebas de esos datos. El repositorio contiene la base técnica QVAC. No contiene la aplicación clínica funcional ni integraciones hospitalarias terminadas.
+La base anterior no contenía una aplicación clínica funcional: los módulos de `src/pulso/` eran stubs sin implementación y no existían integraciones hospitalarias terminadas. Toda base adicional incorporada se añadirá a esta declaración.
