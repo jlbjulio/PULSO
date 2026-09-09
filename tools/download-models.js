@@ -36,10 +36,10 @@ const registryAssets = [
 
 const remoteAssets = [
   {
-    destination: "models/clinical/medpsy-4b-q4_k_m-imat.gguf",
-    url: "https://huggingface.co/qvac/MedPsy-4B-GGUF/resolve/main/medpsy-4b-q4_k_m-imat.gguf",
-    size: 2716068640,
-    sha256: "2ecbf622a2856f631001f20f593669aa03acba39977f521bef80cd8600864980",
+    destination: "models/clinical/medpsy-1.7b-q8_0.gguf",
+    url: "https://huggingface.co/qvac/MedPsy-1.7B-GGUF/resolve/main/medpsy-1.7b-q8_0.gguf",
+    size: 2165039040,
+    sha256: "03ebb130aa6e818a8cf733301381c9edb69c94e0e1ad556595b1d5545a1c5073",
   },
   {
     destination:

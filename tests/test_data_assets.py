@@ -116,6 +116,20 @@ def test_machine_readable_schemas_are_valid_json() -> None:
         assert schema["additionalProperties"] is False
 
 
+def test_actionable_training_orders_have_wake_word_and_confirmation_gate() -> None:
+    for split in ("train", "validation", "test"):
+        for row in load_jsonl(FINETUNING / f"{split}.jsonl"):
+            user, output = decoded_case(row)
+            utterances = {item["id"]: item["text"] for item in user["utterances"]}
+            for event in output["events"]:
+                if not event["actionable"]:
+                    continue
+                evidence = [utterances[item] for item in event["evidence_utterance_ids"]]
+                assert any(text.casefold().lstrip().startswith("pulso") for text in evidence)
+                assert event["confirmation_required"] is True
+                assert event["state"] == "pending_confirmation"
+
+
 def test_inference_is_restricted_to_local_or_p2p_qvac() -> None:
     config = json.loads((ROOT / "config" / "models.json").read_text(encoding="utf-8"))
     assert config["runtime"] == {

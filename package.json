@@ -7,6 +7,10 @@
   "scripts": {
     "setup": "python tools/prepare_environment.py",
     "models:download": "node tools/download-models.js",
+    "qvac:health": "tsx src/qvac/cli.ts health",
+    "rag:prepare": "python tools/prepare_rag.py",
+    "rag:index": "tsx src/qvac/cli.ts rag-index",
+    "train:evaluate": "tsx training/evaluate_adapter.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "format:check": "prettier --check package.json tsconfig.json \".github/**/*.yml\" \"tools/**/*.js\"",

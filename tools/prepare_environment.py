@@ -74,6 +74,7 @@ def main() -> None:
         raise SystemExit("Se requiere Node.js 22.17 o superior.")
 
     run(sys.executable, "-m", "pip", "install", "-r", "python-requirements.txt")
+    run(sys.executable, "-m", "pip", "install", "--editable", ".")
     npm = npm_executable()
     run(npm, "ci")
     run(npm, "install", "--global", "@qvac/cli@0.13.0")

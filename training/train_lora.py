@@ -1,4 +1,9 @@
-import asyncio
+"""Train PULSO's MedPsy event-extraction adapter and log it locally."""
+
+from __future__ import annotations
+
+import json
+import shutil
 import subprocess
 import sys
 import webbrowser
@@ -6,46 +11,44 @@ from datetime import datetime
 from pathlib import Path
 
 from tensorboardX import SummaryWriter
-from tetherto.qvac_sdk import (
-    Client,
-    FinetuneProgressResponse,
-    FinetuneRequest,
-    finetune_with_progress,
-    load_model,
-    unload_model,
-)
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MODEL_PATH = PROJECT_ROOT / "models" / "clinical" / "medpsy-4b-q4_k_m-imat.gguf"
-TRAIN_DATA = PROJECT_ROOT / "data" / "finetuning" / "train.jsonl"
-VALIDATION_DATA = PROJECT_ROOT / "data" / "finetuning" / "validation.jsonl"
-OUTPUT_DIR = PROJECT_ROOT / "training" / "output"
-SDK_DIR = PROJECT_ROOT / "node_modules" / "@qvac" / "sdk"
+ROOT = Path(__file__).resolve().parent.parent
+MODEL = ROOT / "models" / "clinical" / "medpsy-1.7b-q8_0.gguf"
+TRAIN = ROOT / "data" / "finetuning" / "train.jsonl"
+VALIDATION = ROOT / "data" / "finetuning" / "validation.jsonl"
+OUTPUT = ROOT / "training" / "output"
+ADAPTER = OUTPUT / "pulso-medpsy-lora.gguf"
+REQUEST = OUTPUT / "training-request.json"
+REPORT = OUTPUT / "training-report.json"
+BRIDGE = ROOT / "training" / "qvac_finetune.ts"
 
 LORA_CONFIG = {
     "loraRank": 8,
     "loraAlpha": 16,
     "loraSeed": 42,
-    "loraModules": "attn_q,attn_k,attn_v,attn_o,ffn_gate,ffn_up,ffn_down",
+    "loraModules": "attn_q,attn_k,attn_v,attn_o",
 }
-
 TRAINING_CONFIG = {
-    "numberOfEpochs": 2,
+    "numberOfEpochs": 1,
     "learningRate": 0.0001,
     "lrScheduler": "cosine",
     "lrMin": 1e-8,
     "warmupRatio": 0.05,
     "warmupRatioSet": True,
-    "contextLength": 2048,
-    "batchSize": 1,
-    "microBatchSize": 1,
+    "contextLength": 1024,
+    "batchSize": 128,
+    "microBatchSize": 64,
     "assistantLossOnly": True,
-    "checkpointSaveSteps": 25,
+    "checkpointSaveSteps": 50,
 }
 
 
-def start_tensorboard() -> Path:
-    logs = OUTPUT_DIR / "tensorboard"
+def count(path: Path) -> int:
+    return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line)
+
+
+def tensorboard() -> Path:
+    logs = OUTPUT / "tensorboard"
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     subprocess.Popen(
         [
@@ -67,53 +70,81 @@ def start_tensorboard() -> Path:
     return logs
 
 
-async def train() -> None:
-    logs = start_tensorboard()
-    run_name = datetime.now().strftime("%Y%m%d-%H%M%S")
-
-    async with Client(sdk_dir=str(SDK_DIR)) as client:
-        model_id = await load_model(
-            client.transport,
-            model_src=str(MODEL_PATH),
-            model_type="llamacpp-completion",
-            model_config={"device": "gpu", "gpu_layers": 20, "ctx_size": 2048},
-        )
-
-        options = {
-            "trainDatasetDir": str(TRAIN_DATA),
-            "validation": {"type": "dataset", "path": str(VALIDATION_DATA)},
-            "outputParametersDir": str(OUTPUT_DIR / "adapter"),
-            "checkpointSaveDir": str(OUTPUT_DIR / "checkpoints"),
-            **TRAINING_CONFIG,
-            **LORA_CONFIG,
-        }
-        request = FinetuneRequest.model_validate(
-            {"modelId": model_id, "operation": "start", "options": options}
-        )
-
-        try:
-            with SummaryWriter(str(logs / run_name)) as writer:
-                async for event in finetune_with_progress(client.transport, request):
-                    if not isinstance(event, FinetuneProgressResponse):
-                        print(event)
-                        continue
-
-                    step = event.global_steps
-                    if event.loss is not None:
-                        writer.add_scalar("training/loss", event.loss, step)
-                    if event.accuracy is not None:
-                        writer.add_scalar("training/accuracy", event.accuracy, step)
-                    writer.flush()
-                    print(f"epoch={event.current_epoch + 1} step={step} loss={event.loss}")
-        finally:
-            await unload_model(client.transport, model_id, clear_storage=False)
+def train() -> None:
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    npx = shutil.which("npx")
+    if not npx:
+        raise RuntimeError("npx is required; install the Node dependencies first")
+    request = {
+        "modelPath": str(MODEL),
+        "trainPath": str(TRAIN),
+        "validationPath": str(VALIDATION),
+        "adapterPath": str(ADAPTER),
+        "checkpointPath": str(OUTPUT / "checkpoints"),
+        "modelConfig": {"device": "gpu", "ctx_size": 1024, "gpu_layers": 20},
+        "options": {**TRAINING_CONFIG, **LORA_CONFIG},
+    }
+    REQUEST.write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
+    train_count, validation_count = count(TRAIN), count(VALIDATION)
+    print(f"Training PULSO MedPsy LoRA: train={train_count}, validation={validation_count}")
+    process = subprocess.Popen(
+        [npx, "--no-install", "tsx", str(BRIDGE), str(REQUEST)],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    result: dict[str, object] = {}
+    last_event: dict[str, object] = {}
+    assert process.stdout is not None
+    with SummaryWriter(str(tensorboard() / datetime.now().strftime("%Y%m%d-%H%M%S"))) as writer:
+        for line in process.stdout:
+            line = line.rstrip()
+            if line.startswith("PULSO_PROGRESS "):
+                event = json.loads(line.removeprefix("PULSO_PROGRESS "))
+                step = int(event["global_steps"])
+                if event.get("loss") is not None:
+                    writer.add_scalar("training/loss", float(event["loss"]), step)
+                if event.get("accuracy") is not None:
+                    writer.add_scalar("training/accuracy", float(event["accuracy"]), step)
+                last_event = event
+                print(
+                    f"epoch={int(event['current_epoch']) + 1} step={step} "
+                    f"batch={event.get('current_batch')}/{event.get('total_batches')} "
+                    f"loss={event.get('loss')} accuracy={event.get('accuracy')} "
+                    f"eta={round(float(event.get('eta_ms', 0)) / 60000, 1)}m"
+                )
+            elif line.startswith("PULSO_RESULT "):
+                result = json.loads(line.removeprefix("PULSO_RESULT "))
+            else:
+                print(line)
+    if process.wait() != 0:
+        raise RuntimeError("QVAC fine-tuning failed")
+    if result.get("status") != "COMPLETED" or not ADAPTER.exists():
+        raise RuntimeError(f"fine-tuning did not create {ADAPTER}")
+    report = {
+        "completed_at": datetime.now().astimezone().isoformat(),
+        "base_model": str(MODEL.relative_to(ROOT)),
+        "adapter": str(ADAPTER.relative_to(ROOT)),
+        "train_examples": train_count,
+        "validation_examples": validation_count,
+        "lora": LORA_CONFIG,
+        "training": TRAINING_CONFIG,
+        "final_progress": last_event,
+        "result": result,
+        "adapter_bytes": ADAPTER.stat().st_size,
+    }
+    REPORT.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(f"Adapter saved to {ADAPTER}")
 
 
 def main() -> None:
-    for path in (MODEL_PATH, TRAIN_DATA, VALIDATION_DATA, SDK_DIR):
+    for path in (MODEL, TRAIN, VALIDATION, BRIDGE):
         if not path.exists():
             raise FileNotFoundError(path)
-    asyncio.run(train())
+    train()
 
 
 if __name__ == "__main__":

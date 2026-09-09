@@ -5,6 +5,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 __pycache__/
+*.egg-info/
 .pytest_cache/
 .ruff_cache/
 *.log

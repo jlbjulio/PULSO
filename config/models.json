@@ -7,7 +7,9 @@
   },
   "models": {
     "clinical_extraction": {
-      "path": "models/clinical/medpsy-4b-q4_k_m-imat.gguf",
+      "path": "models/clinical/medpsy-1.7b-q8_0.gguf",
+      "lora_path": "training/output/pulso-medpsy-lora.gguf",
+      "quantization": "Q8_0",
       "qvac_model_type": "llamacpp-completion"
     },
     "transcription": {
