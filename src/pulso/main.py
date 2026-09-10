@@ -6,15 +6,15 @@ import argparse
 import json
 from pathlib import Path
 
-from pulso.application.documentation import build_document, save_document
-from pulso.application.encounter import EncounterService
-from pulso.application.fhir_export import export_bundle
-from pulso.application.order_flow import OrderService
-from pulso.domain.clinical_events import ActorRole
-from pulso.infrastructure.database.sqlite import SQLiteDatabase
-from pulso.infrastructure.qvac.retrieval import RetrievalService
-from pulso.infrastructure.qvac.runtime import QvacRuntime
-from pulso.infrastructure.repositories.encounters import EncounterRepository
+from pulso.ai.rag import RetrievalService
+from pulso.ai.runtime import QvacRuntime
+from pulso.clinical.documentation import build_document, save_document
+from pulso.clinical.encounter_service import EncounterService
+from pulso.clinical.events import ActorRole
+from pulso.clinical.fhir import export_bundle
+from pulso.clinical.order_service import OrderService
+from pulso.storage.database import SQLiteDatabase
+from pulso.storage.repository import EncounterRepository
 
 
 def main() -> None:
@@ -31,12 +31,14 @@ def main() -> None:
             "order-confirm",
             "order-dispatch",
             "order-ack",
+            "order-start",
+            "order-complete",
+            "order-cancel",
             "dashboard",
             "rag-index",
             "rag-search",
             "qvac-health",
             "fhir-export",
-            "ui",
         ],
     )
     parser.add_argument("--database")
@@ -54,12 +56,6 @@ def main() -> None:
     parser.add_argument("--workspace", default="pulso-emergency-ops")
     parser.add_argument("--output")
     arguments = parser.parse_args()
-
-    if arguments.command == "ui":
-        from pulso.ui.app import run_app
-
-        run_app()
-        return
 
     database = SQLiteDatabase(arguments.database) if arguments.database else SQLiteDatabase()
     database.initialize()
@@ -125,10 +121,24 @@ def main() -> None:
             ).model_dump(mode="json")
         elif arguments.command == "order-dispatch":
             result = orders.dispatch(arguments.order).model_dump(mode="json")
-        else:
+        elif arguments.command == "order-ack":
             result = orders.acknowledge(arguments.order, actor=arguments.clinician).model_dump(
                 mode="json"
             )
+        elif arguments.command == "order-start":
+            result = orders.begin(arguments.order, actor=arguments.clinician).model_dump(
+                mode="json"
+            )
+        elif arguments.command == "order-complete":
+            result = orders.complete(arguments.order, actor=arguments.clinician).model_dump(
+                mode="json"
+            )
+        else:
+            result = orders.cancel(
+                arguments.order,
+                actor=arguments.clinician,
+                reason=arguments.text or "cancelled by clinician",
+            ).model_dump(mode="json")
     elif arguments.command == "dashboard":
         result = repository.dashboard()
     elif arguments.command == "rag-index":

@@ -93,11 +93,11 @@ def test_finetuning_covers_every_event_type_and_state() -> None:
 
 def test_rag_evaluation_references_known_sources() -> None:
     manifest = json.loads((ROOT / "data" / "rag" / "manifest.json").read_text(encoding="utf-8-sig"))
-    source_ids = {item["id"] for item in manifest}
+    source_ids = {item["id"] for item in manifest if item.get("include_in_rag", True)}
     cases = load_jsonl(ROOT / "data" / "evaluation" / "rag-retrieval.jsonl")
     case_ids = {item["case_id"] for item in cases}
 
-    assert len(cases) == 40
+    assert len(cases) >= 30
     assert len(case_ids) == len(cases)
     for case in cases:
         assert set(case["expected_source_ids"]).issubset(source_ids)

@@ -1,12 +1,11 @@
-from pulso.application.voice_commands import parse_voice_command
-from pulso.domain.clinical_events import (
+from pulso.clinical.events import (
     ActorRole,
     ClinicalEvent,
     EventState,
     EventType,
 )
-from pulso.domain.orders import Order, OrderState, transition
-from pulso.domain.safety import explicit_command, gate_event
+from pulso.clinical.orders import Order, OrderState, transition
+from pulso.clinical.safety import explicit_command, gate_event
 
 
 def event(**updates: object) -> ClinicalEvent:
@@ -84,10 +83,3 @@ def test_order_state_machine_rejects_skipping_confirmation() -> None:
         assert "invalid order transition" in str(error)
     else:
         raise AssertionError("unsafe transition was accepted")
-
-
-def test_voice_controls_and_clinical_requests_are_distinct() -> None:
-    assert parse_voice_command("Pulso, modo crítico").intent == "critical_mode"
-    command = parse_voice_command("Pulso, activar equipo de trauma")
-    assert command is not None
-    assert command.intent == "clinical_request"

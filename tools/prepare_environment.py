@@ -41,7 +41,8 @@ def validate_models() -> None:
     missing: list[str] = []
     for model in config["models"].values():
         for key, value in model.items():
-            if isinstance(value, str) and (key.endswith("path") or key in {"euro", "afri"}):
+            required_path = key.endswith("path") and key != "lora_path"
+            if isinstance(value, str) and (required_path or key == "euro"):
                 if not (ROOT / value).exists():
                     missing.append(value)
     if missing:
@@ -52,7 +53,11 @@ def validate_rag_sources() -> None:
     manifest_path = ROOT / "data" / "rag" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
     failures: list[str] = []
+    included = 0
     for source in manifest:
+        if not source.get("include_in_rag", True):
+            continue
+        included += 1
         path = ROOT / "data" / "rag" / Path(source["local_path"])
         if not path.is_file():
             failures.append(f"ausente: {source['filename']}")
@@ -62,13 +67,13 @@ def validate_rag_sources() -> None:
             failures.append(f"checksum inválido: {source['filename']}")
     if failures:
         raise SystemExit("Fuentes RAG inválidas:\n" + "\n".join(failures))
-    print(f"Fuentes RAG verificadas: {len(manifest)}")
+    print(f"Fuentes RAG verificadas: {included}")
 
 
 def main() -> None:
     if os.environ.get("VIRTUAL_ENV") or sys.prefix != sys.base_prefix:
         raise SystemExit("Sal del entorno virtual. Este proyecto usa Python sin .venv.")
-    if sys.version_info < (3, 11):  # noqa: UP036 - useful message on teammate machines
+    if (sys.version_info.major, sys.version_info.minor) < (3, 11):
         raise SystemExit("Se requiere Python 3.11 o superior.")
     if node_version() < MINIMUM_NODE:
         raise SystemExit("Se requiere Node.js 22.17 o superior.")
@@ -77,12 +82,17 @@ def main() -> None:
     run(sys.executable, "-m", "pip", "install", "--editable", ".")
     npm = npm_executable()
     run(npm, "ci")
-    run(npm, "install", "--global", "@qvac/cli@0.13.0")
     run(npm, "run", "models:download")
+    run(npm, "run", "rag:download")
     validate_models()
     validate_rag_sources()
+    run(npm, "run", "rag:ocr")
+    run(npm, "run", "rag:prepare")
+    run(sys.executable, "-m", "pulso.main", "init")
+    run(npm, "run", "rag:reset")
+    run(npm, "run", "rag:index")
     run(npm, "run", "check")
-    print("\nPULSO está listo para desarrollar.")
+    print("\nPULSO está listo. Ejecuta: npm run app")
 
 
 if __name__ == "__main__":

@@ -40,6 +40,14 @@ function eventSignature(event: Event): string {
   });
 }
 
+function typeStateSignature(event: Event): string {
+  return JSON.stringify({
+    type: event.type,
+    state: event.state,
+    evidence_utterance_ids: [...event.evidence_utterance_ids].sort(),
+  });
+}
+
 let modelId: string | undefined;
 try {
   modelId = await loadModel({
@@ -50,7 +58,9 @@ try {
   const details: Array<Record<string, unknown>> = [];
   let valid = 0;
   let matchedEvents = 0;
+  let matchedTypesAndStates = 0;
   let expectedEvents = 0;
+  let correctEventCounts = 0;
   for (const [index, item] of cases.entries()) {
     const expected = JSON.parse(item.messages[2].content) as Output;
     expectedEvents += expected.events.length;
@@ -79,6 +89,11 @@ try {
       valid += 1;
       const actualSignatures = new Set(actual.events.map(eventSignature));
       matchedEvents += expected.events.filter((event) => actualSignatures.has(eventSignature(event))).length;
+      const actualTypesAndStates = new Set(actual.events.map(typeStateSignature));
+      matchedTypesAndStates += expected.events.filter((event) =>
+        actualTypesAndStates.has(typeStateSignature(event)),
+      ).length;
+      if (actual.events.length === expected.events.length) correctEventCounts += 1;
     } catch {
       actual = null;
     }
@@ -91,6 +106,8 @@ try {
       matched_events: actual
         ? expected.events.filter((event) => new Set(actual.events.map(eventSignature)).has(eventSignature(event))).length
         : 0,
+      expected,
+      actual,
       elapsed_ms: performance.now() - started,
       input_tokens: final.stats?.promptTokens ?? 0,
       output_tokens: final.stats?.generatedTokens ?? 0,
@@ -105,6 +122,8 @@ try {
     adapter: "training/output/pulso-medpsy-lora.gguf",
     cases: cases.length,
     valid_json_rate: cases.length ? valid / cases.length : 0,
+    event_count_accuracy: cases.length ? correctEventCounts / cases.length : 0,
+    type_state_recall: expectedEvents ? matchedTypesAndStates / expectedEvents : 0,
     event_exact_match_recall: expectedEvents ? matchedEvents / expectedEvents : 0,
     details,
   };

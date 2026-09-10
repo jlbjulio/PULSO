@@ -3,33 +3,54 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Base tecnica QVAC del orquestador clinico local PULSO",
+  "main": "dist/electron/electron.js",
+  "description": "Copiloto local de operaciones clinicas para salas de urgencias",
   "scripts": {
     "setup": "python tools/prepare_environment.py",
+    "app": "npm run desktop:build && node tools/launch-desktop.js",
+    "app:dev": "concurrently -k \"vite --host 127.0.0.1\" \"tsc -p src/app/tsconfig.electron.json --watch --preserveWatchOutput\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 node tools/launch-desktop.js\"",
+    "desktop:build": "vite build && tsc -p src/app/tsconfig.electron.json",
+    "rag:download": "python tools/download_rag_sources.py",
     "models:download": "node tools/download-models.js",
     "qvac:health": "tsx src/qvac/cli.ts health",
+    "rag:ocr": "python tools/extract_scanned_sources.py",
     "rag:prepare": "python tools/prepare_rag.py",
     "rag:index": "tsx src/qvac/cli.ts rag-index",
+    "rag:reset": "tsx src/qvac/cli.ts rag-reset",
+    "train": "python training/train_lora.py",
     "train:evaluate": "tsx training/evaluate_adapter.ts",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/app/tsconfig.json",
     "format:check": "prettier --check package.json tsconfig.json \".github/**/*.yml\" \"tools/**/*.js\"",
-    "test": "vitest run --passWithNoTests && python -m pytest -q",
-    "check": "npm run lint && npm run typecheck && npm run format:check && python -m ruff check . && npm test"
+    "test": "vitest run --root . && python -m pytest -q",
+    "check": "npm run lint && npm run typecheck && npm run desktop:build && npm run format:check && python -m ruff check . && npm test"
   },
   "dependencies": {
     "@qvac/sdk": "0.19.0",
-    "@qvac/translation-nmtcpp": "0.13.0"
+    "@qvac/translation-nmtcpp": "0.13.0",
+    "lucide-react": "^0.544.0",
+    "motion": "^12.23.12",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@tailwindcss/vite": "^4.1.13",
     "@types/node": "26.3.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0",
+    "electron": "^44.3.0",
     "eslint": "10.9.1",
     "globals": "17.11.0",
     "prettier": "3.9.6",
     "tsx": "4.23.12",
     "typescript": "6.0.3",
     "typescript-eslint": "8.68.0",
-    "vitest": "4.1.11"
+    "vite": "^8.2.2",
+    "vitest": "4.1.11",
+    "wait-on": "^8.0.4"
   }
 }

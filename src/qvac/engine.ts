@@ -1,4 +1,5 @@
-import { access, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { resolve } from "node:path";
 
@@ -29,12 +30,10 @@ type ModelSpec = {
   recognizer_path?: string;
   detector_path?: string;
   euro?: string;
-  afri?: string;
   quantization?: string;
   qvac_model_type: string;
   model_config?: Record<string, unknown>;
   euro_languages?: string[];
-  afri_languages?: string[];
 };
 
 type PulsoConfig = {
@@ -61,13 +60,19 @@ Thinking aloud or suggesting an option is considered, never ordered.
 Only an utterance beginning with the wake word PULSO may be actionable, and it still requires confirmation.
 Mentioning a medication is not administration. Administration requires an explicit statement that it was given.
 Never diagnose, prescribe, infer a dose, fill a missing field, or create an action from background speech.
+Return at most one event for each distinct fact and never duplicate an event.
 Return only JSON that satisfies the schema.`;
 
 function localPath(path: string): string {
   return resolve(root, path);
 }
 
-function metric(model: string, quantization: string, task: string, prompt: string): PerformanceRecord {
+function metric(
+  model: string,
+  quantization: string,
+  task: string,
+  prompt: string,
+): PerformanceRecord {
   return {
     timestamp: new Date().toISOString(),
     model,
@@ -91,17 +96,28 @@ function errorMessage(error: unknown): string {
 
 export async function extractClinicalEvents(input: {
   patient_ref: string;
-  utterances: Array<{ id: string; speaker: string; language: string; text: string }>;
+  utterances: Array<{
+    id: string;
+    speaker: string;
+    language: string;
+    text: string;
+  }>;
 }): Promise<ExtractionResult> {
   const spec = config.models.clinical_extraction;
   if (!spec.path) throw new Error("clinical extraction model path is missing");
   const prompt = JSON.stringify(input);
-  const record = metric(spec.path, spec.quantization ?? "Q4_K_M", "clinical-extraction", prompt);
+  const record = metric(
+    spec.path,
+    spec.quantization ?? "Q4_K_M",
+    "clinical-extraction",
+    prompt,
+  );
   const loadStarted = performance.now();
   let modelId: string | undefined;
   try {
-    const lora = spec.lora_path ? localPath(spec.lora_path) : undefined;
-    if (lora) await access(lora);
+    const adapterPath = spec.lora_path ? localPath(spec.lora_path) : undefined;
+    const lora =
+      adapterPath && existsSync(adapterPath) ? adapterPath : undefined;
     modelId = await loadModel({
       modelSrc: localPath(spec.path),
       modelType: "llamacpp-completion",
@@ -131,7 +147,11 @@ export async function extractClinicalEvents(input: {
       },
       responseFormat: {
         type: "json_schema",
-        json_schema: { name: "pulso_clinical_events", schema: extractionSchema, strict: true },
+        json_schema: {
+          name: "pulso_clinical_events",
+          schema: extractionSchema,
+          strict: true,
+        },
       },
     });
     const final = await run.final;
@@ -142,7 +162,10 @@ export async function extractClinicalEvents(input: {
     record.tokens_per_second = final.stats?.tokensPerSecond ?? 0;
     const text = final.contentText.trim() || final.raw.fullText.trim();
     if (!text) throw new Error("MedPsy returned an empty response");
-    const parsed = normalizeExtraction(JSON.parse(text) as ExtractionResult, input);
+    const parsed = normalizeExtraction(
+      JSON.parse(text) as ExtractionResult,
+      input,
+    );
     record.success = true;
     return parsed;
   } catch (error) {
@@ -156,7 +179,8 @@ export async function extractClinicalEvents(input: {
 
 export async function transcribeAudio(audioPath: string): Promise<unknown> {
   const spec = config.models.transcription;
-  if (!spec.path || !spec.vad_path) throw new Error("transcription paths are missing");
+  if (!spec.path || !spec.vad_path)
+    throw new Error("transcription paths are missing");
   const record = metric(spec.path, "Q8_0", "transcription", audioPath);
   let modelId: string | undefined;
   const loadStarted = performance.now();
@@ -168,10 +192,20 @@ export async function transcribeAudio(audioPath: string): Promise<unknown> {
     });
     record.model_load_ms = performance.now() - loadStarted;
     const started = performance.now();
-    const segments = await transcribe({ modelId, audioChunk: resolve(audioPath), metadata: true });
+    const segments = await transcribe({
+      modelId,
+      audioChunk: resolve(audioPath),
+      metadata: true,
+    });
     record.total_inference_ms = performance.now() - started;
     record.success = true;
-    return { text: segments.map((item) => item.text).join(" ").trim(), segments };
+    return {
+      text: segments
+        .map((item) => item.text)
+        .join(" ")
+        .trim(),
+      segments,
+    };
   } catch (error) {
     record.error = errorMessage(error);
     throw error;
@@ -196,16 +230,26 @@ export async function diarizeAudio(audioPath: string): Promise<string> {
   }
 }
 
-function parseSpeakerSegments(raw: string) {
-  return raw
+function seconds(value: string): number {
+  return value
+    .split(":")
+    .map(Number)
+    .reduce((total, part) => total * 60 + part, 0);
+}
+
+export function parseDiarization(raw: string) {
+  const segments = raw
     .split(/\r?\n/)
-    .map((line) => line.match(/Speaker (\d+): ([\d.]+)s - ([\d.]+)s/))
+    .map((line) =>
+      line.match(/Speaker\s+(\d+)\s*:\s*([\d.:]+)s?\s*-\s*([\d.:]+)s?/i),
+    )
     .filter((match): match is RegExpMatchArray => Boolean(match))
     .map((match) => ({
       speaker: Number(match[1]),
-      startMs: Number(match[2]) * 1000,
-      endMs: Number(match[3]) * 1000,
+      startMs: seconds(match[2]) * 1000,
+      endMs: seconds(match[3]) * 1000,
     }));
+  return segments.sort((left, right) => left.startMs - right.startMs);
 }
 
 export async function analyzeConversation(audioPath: string): Promise<unknown> {
@@ -215,22 +259,29 @@ export async function analyzeConversation(audioPath: string): Promise<unknown> {
   ]);
   const typed = transcript as {
     text: string;
-    segments: Array<{ text: string; startMs: number; endMs: number; id?: string }>;
+    segments: Array<{
+      text: string;
+      startMs: number;
+      endMs: number;
+      id?: string;
+    }>;
   };
-  const speakers = parseSpeakerSegments(diarizationRaw);
+  const speakers = parseDiarization(diarizationRaw);
   const utterances = typed.segments.map((segment, index) => {
     const match = speakers
       .map((speaker) => ({
         speaker,
         overlap: Math.max(
           0,
-          Math.min(segment.endMs, speaker.endMs) - Math.max(segment.startMs, speaker.startMs),
+          Math.min(segment.endMs, speaker.endMs) -
+            Math.max(segment.startMs, speaker.startMs),
         ),
       }))
       .sort((left, right) => right.overlap - left.overlap)[0];
     return {
-      id: segment.id ?? `audio-${index + 1}`,
-      speaker: match && match.overlap > 0 ? `speaker_${match.speaker}` : "unknown",
+      id: segment.id === undefined ? `audio-${index + 1}` : String(segment.id),
+      speaker:
+        match && match.overlap > 0 ? `speaker_${match.speaker}` : "unknown",
       text: segment.text.trim(),
       start_ms: segment.startMs,
       end_ms: segment.endMs,
@@ -239,10 +290,10 @@ export async function analyzeConversation(audioPath: string): Promise<unknown> {
   return { text: typed.text, utterances, diarization: speakers };
 }
 
-function translationFiles(group: "euro" | "afri", direction: "xx-en" | "en-xx") {
+function translationFiles(direction: "xx-en" | "en-xx") {
   const spec = config.models.translation;
-  const base = spec[group];
-  if (!base) throw new Error("translation model group is missing");
+  const base = spec.euro;
+  if (!base) throw new Error("translation model path is missing");
   const directory = `${base}/${direction}/Base/intgemm`;
   return {
     model: localPath(`${directory}/model.intgemm.alphas.bin`),
@@ -254,9 +305,8 @@ async function translateStep(
   text: string,
   from: string,
   to: string,
-  group: "euro" | "afri",
 ): Promise<string> {
-  const files = translationFiles(group, from === "en" ? "en-xx" : "xx-en");
+  const files = translationFiles(from === "en" ? "en-xx" : "xx-en");
   const taggedText = tagTranslationInput(text, from, to);
   let modelId: string | undefined;
   try {
@@ -282,30 +332,34 @@ async function translateStep(
   }
 }
 
-export function tagTranslationInput(text: string, from: string, to: string): string {
+export function tagTranslationInput(
+  text: string,
+  from: string,
+  to: string,
+): string {
   return from === "en" ? `##${to.toUpperCase()} ${text}` : text;
 }
 
-export async function translateText(text: string, source: string, target: string): Promise<string> {
+export async function translateText(
+  text: string,
+  source: string,
+  target: string,
+): Promise<string> {
   if (source === target) return text;
   const translation = config.models.translation;
-  const supported = new Set([
-    "en",
-    ...(translation.euro_languages ?? []),
-    ...(translation.afri_languages ?? []),
-  ]);
+  const supported = new Set(["en", ...(translation.euro_languages ?? [])]);
   if (!supported.has(source) || !supported.has(target)) {
     throw new Error(`unsupported local translation pair: ${source}-${target}`);
   }
-  const sourceGroup = translation.afri_languages?.includes(source) ? "afri" : "euro";
-  const targetGroup = translation.afri_languages?.includes(target) ? "afri" : "euro";
-  const english = source === "en" ? text : await translateStep(text, source, "en", sourceGroup);
-  return target === "en" ? english : translateStep(english, "en", target, targetGroup);
+  const english =
+    source === "en" ? text : await translateStep(text, source, "en");
+  return target === "en" ? english : translateStep(english, "en", target);
 }
 
 export async function readDocument(imagePath: string): Promise<unknown> {
   const spec = config.models.ocr;
-  if (!spec.recognizer_path || !spec.detector_path) throw new Error("OCR paths are missing");
+  if (!spec.recognizer_path || !spec.detector_path)
+    throw new Error("OCR paths are missing");
   let modelId: string | undefined;
   try {
     modelId = await loadModel({
@@ -318,7 +372,11 @@ export async function readDocument(imagePath: string): Promise<unknown> {
         lowConfidenceThreshold: 0.45,
       },
     });
-    const result = ocr({ modelId, image: resolve(imagePath), options: { paragraph: false } });
+    const result = ocr({
+      modelId,
+      image: resolve(imagePath),
+      options: { paragraph: false },
+    });
     return { blocks: await result.blocks, stats: await result.stats };
   } finally {
     if (modelId) await unloadModel({ modelId });
@@ -327,7 +385,8 @@ export async function readDocument(imagePath: string): Promise<unknown> {
 
 export async function readDocuments(imagePaths: string[]): Promise<unknown> {
   const spec = config.models.ocr;
-  if (!spec.recognizer_path || !spec.detector_path) throw new Error("OCR paths are missing");
+  if (!spec.recognizer_path || !spec.detector_path)
+    throw new Error("OCR paths are missing");
   let modelId: string | undefined;
   const documents: Array<{ path: string; blocks: unknown }> = [];
   try {
@@ -342,7 +401,11 @@ export async function readDocuments(imagePaths: string[]): Promise<unknown> {
       },
     });
     for (const path of imagePaths) {
-      const result = ocr({ modelId, image: resolve(path), options: { paragraph: false } });
+      const result = ocr({
+        modelId,
+        image: resolve(path),
+        options: { paragraph: false },
+      });
       documents.push({ path, blocks: await result.blocks });
     }
     return { documents };
@@ -366,8 +429,15 @@ export async function indexRag(corpusPath: string): Promise<unknown> {
       modelType: "llamacpp-embedding",
     });
     for (const workspace of [...new Set(lines.map((line) => line.workspace))]) {
-      const documents = lines.filter((line) => line.workspace === workspace).map((line) => line.content);
-      const result = await ragIngest({ modelId, workspace, documents, chunk: false });
+      const documents = lines
+        .filter((line) => line.workspace === workspace)
+        .map((line) => line.content);
+      const result = await ragIngest({
+        modelId,
+        workspace,
+        documents,
+        chunk: false,
+      });
       counts[workspace] = result.processed.length;
     }
     return { indexed: counts };
@@ -376,7 +446,11 @@ export async function indexRag(corpusPath: string): Promise<unknown> {
   }
 }
 
-export async function searchRag(query: string, workspace: string, topK: number): Promise<unknown> {
+export async function searchRag(
+  query: string,
+  workspace: string,
+  topK: number,
+): Promise<unknown> {
   const spec = config.models.rag_embeddings;
   if (!spec.path) throw new Error("embedding model path is missing");
   let modelId: string | undefined;
@@ -425,7 +499,11 @@ function wavHeader(dataLength: number, sampleRate: number): Buffer {
   return header;
 }
 
-export async function synthesize(text: string, outputPath: string, language = "es"): Promise<void> {
+export async function synthesize(
+  text: string,
+  outputPath: string,
+  language = "es",
+): Promise<void> {
   const spec = config.models.speech;
   if (!spec.path) throw new Error("speech model path is missing");
   let modelId: string | undefined;
@@ -441,10 +519,20 @@ export async function synthesize(text: string, outputPath: string, language = "e
         ttsNumInferenceSteps: 5,
       },
     });
-    const samples = await textToSpeech({ modelId, text, inputType: "text", stream: false }).buffer;
+    const samples = await textToSpeech({
+      modelId,
+      text,
+      inputType: "text",
+      stream: false,
+    }).buffer;
     const pcm = Buffer.alloc(samples.length * 2);
-    samples.forEach((sample, index) => pcm.writeInt16LE(Math.max(-32768, Math.min(32767, sample)), index * 2));
-    await writeFile(resolve(outputPath), Buffer.concat([wavHeader(pcm.length, 44100), pcm]));
+    samples.forEach((sample, index) =>
+      pcm.writeInt16LE(Math.max(-32768, Math.min(32767, sample)), index * 2),
+    );
+    await writeFile(
+      resolve(outputPath),
+      Buffer.concat([wavHeader(pcm.length, 44100), pcm]),
+    );
   } finally {
     if (modelId) await unloadModel({ modelId });
   }

@@ -8,6 +8,7 @@ import {
   extractClinicalEvents,
   indexRag,
   listRagWorkspaces,
+  parseDiarization,
   readDocument,
   readDocuments,
   searchRag,
@@ -26,14 +27,6 @@ function required(name: string): string {
   const value = option(name);
   if (!value) throw new Error(`Missing required option ${name}`);
   return value;
-}
-
-function parseDiarization(raw: string) {
-  return raw
-    .split(/\r?\n/)
-    .map((line) => line.match(/Speaker (\d+): ([\d.]+)s - ([\d.]+)s/))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .map((match) => ({ speaker: Number(match[1]), start: Number(match[2]), end: Number(match[3]) }));
 }
 
 async function run(): Promise<void> {

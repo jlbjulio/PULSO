@@ -4,6 +4,8 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "allowJs": true,
     "checkJs": false,
     "noEmit": true,
@@ -13,8 +15,10 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "vite.config.ts",
     "tests/**/*.ts",
     "tools/**/*.js",
     "training/**/*.ts"
-  ]
+  ],
+  "exclude": ["src/app/**"]
 }

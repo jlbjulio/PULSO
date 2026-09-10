@@ -1,4 +1,5 @@
 node_modules/
 runtime-data/
+dist/
 *.md
 package-lock.json

@@ -29,3 +29,5 @@ uploads/
 *.onnx
 models/*
 !models/.gitignore
+data/rag/index/*.json
+data/rag/index/*.jsonl

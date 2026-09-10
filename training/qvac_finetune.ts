@@ -7,7 +7,7 @@ type TrainingRequest = {
   trainPath: string;
   validationPath: string;
   adapterPath: string;
-  checkpointPath: string;
+  checkpointPath?: string;
   modelConfig: Record<string, unknown>;
   options: Record<string, unknown>;
 };
@@ -29,7 +29,9 @@ try {
       trainDatasetDir: request.trainPath,
       validation: { type: "dataset", path: request.validationPath },
       outputParametersDir: request.adapterPath,
-      checkpointSaveDir: request.checkpointPath,
+      ...(request.checkpointPath
+        ? { checkpointSaveDir: request.checkpointPath }
+        : {}),
       ...request.options,
     },
   });
@@ -44,4 +46,3 @@ try {
 } finally {
   if (modelId) await unloadModel({ modelId, clearStorage: false });
 }
-

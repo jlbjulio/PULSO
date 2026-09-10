@@ -1,12 +1,13 @@
-from pulso.application.documentation import build_document
-from pulso.application.fhir_export import export_bundle
-from pulso.application.order_flow import OrderService
-from pulso.domain.clinical_events import ActorRole, ClinicalEvent, EventState, EventType
-from pulso.domain.encounters import Encounter
-from pulso.domain.orders import OrderState
-from pulso.infrastructure.audit.ledger import verify_audit_chain
-from pulso.infrastructure.database.sqlite import SQLiteDatabase
-from pulso.infrastructure.repositories.encounters import EncounterRepository
+from pulso.clinical.documentation import build_document, save_document
+from pulso.clinical.encounter_service import EncounterService
+from pulso.clinical.encounters import Encounter
+from pulso.clinical.events import ActorRole, ClinicalEvent, EventState, EventType
+from pulso.clinical.fhir import export_bundle
+from pulso.clinical.order_service import OrderService
+from pulso.clinical.orders import OrderState
+from pulso.storage.audit import verify_audit_chain
+from pulso.storage.database import SQLiteDatabase
+from pulso.storage.repository import EncounterRepository
 
 
 def actionable_event(encounter: Encounter) -> ClinicalEvent:
@@ -39,6 +40,10 @@ def test_closed_loop_order_is_audited_and_queued(tmp_path) -> None:
     confirmed = service.confirm(draft.id, clinician_id="dra.rivera", signature="local:sig")
     dispatched = service.dispatch(confirmed.id)
     assert dispatched.state == OrderState.DISPATCHED
+    accepted = service.acknowledge(dispatched.id, actor="imagenologia")
+    started = service.begin(accepted.id, actor="imagenologia")
+    completed = service.complete(started.id, actor="imagenologia")
+    assert completed.state == OrderState.COMPLETED
     with database.connect() as connection:
         assert verify_audit_chain(connection)
         assert (
@@ -96,3 +101,21 @@ def test_fhir_export_keeps_evidence_provenance() -> None:
     assert any(item["resourceType"] == "Observation" for item in resources)
     provenance = next(item for item in resources if item["resourceType"] == "Provenance")
     assert provenance["entity"][0]["what"]["identifier"]["value"] == "u1"
+
+
+def test_signed_review_closes_the_encounter(tmp_path) -> None:
+    database = SQLiteDatabase(tmp_path / "pulso.db")
+    database.initialize()
+    repository = EncounterRepository(database)
+    encounter = repository.create(Encounter(patient_ref="P", bed="2", clinician_id="D"))
+    service = EncounterService(repository)
+    reviewed = service.begin_review(encounter.id, actor="D")
+    document = save_document(
+        repository,
+        build_document(encounter.id, []),
+        actor="D",
+        signature="local:D",
+    )
+    closed = service.close(reviewed.id, actor="D")
+    assert document.signed_by == "D"
+    assert closed.state.value == "closed"

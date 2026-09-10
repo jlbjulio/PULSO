@@ -1,1 +1,0 @@
-"""PULSO desktop interface."""

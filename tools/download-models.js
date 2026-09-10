@@ -43,32 +43,6 @@ const remoteAssets = [
   },
   {
     destination:
-      "models/translation/afri/en-xx/Base/intgemm/model.intgemm.alphas.bin",
-    url: "https://huggingface.co/qvac/TranslatePsy-AfriNano/resolve/main/en-xx/Base/intgemm/model.intgemm.alphas.bin",
-    size: 42993131,
-    sha256: "d7f4b4c4399f2f5f782cb67bb67a768151a5989f59b23d74af6d77699a01f453",
-  },
-  {
-    destination: "models/translation/afri/en-xx/Base/intgemm/vocab.spm",
-    url: "https://huggingface.co/qvac/TranslatePsy-AfriNano/resolve/main/en-xx/Base/intgemm/vocab.spm",
-    size: 800823,
-    sha256: "f7e3068abd436998d3e6793dfa0ef55cd23ebb93d64324d9216e7f8e920d77b2",
-  },
-  {
-    destination:
-      "models/translation/afri/xx-en/Base/intgemm/model.intgemm.alphas.bin",
-    url: "https://huggingface.co/qvac/TranslatePsy-AfriNano/resolve/main/xx-en/Base/intgemm/model.intgemm.alphas.bin",
-    size: 42993131,
-    sha256: "5af5212975c4b298ac529b1050b94b6c34e82b5ecbc270477bd322285841cb8f",
-  },
-  {
-    destination: "models/translation/afri/xx-en/Base/intgemm/vocab.spm",
-    url: "https://huggingface.co/qvac/TranslatePsy-AfriNano/resolve/main/xx-en/Base/intgemm/vocab.spm",
-    size: 800386,
-    sha256: "32b670fb652a39c843382fa9e4be537c373f7d30479e12332cec158380c0b710",
-  },
-  {
-    destination:
       "models/translation/euro/en-xx/Base/intgemm/model.intgemm.alphas.bin",
     url: "https://huggingface.co/qvac/TranslatePsy-EuroNano/resolve/main/en-xx/Base/intgemm/model.intgemm.alphas.bin",
     size: 42993131,
@@ -182,12 +156,9 @@ async function ensureRemoteModel(asset) {
 
   await mkdir(dirname(destination), { recursive: true });
   const partial = `${destination}.part`;
-  let offset = 0;
-  try {
-    offset = (await stat(partial)).size;
-  } catch {
-    // No partial download exists.
-  }
+  let offset = await stat(partial)
+    .then((file) => file.size)
+    .catch(() => 0);
 
   const headers = offset > 0 ? { Range: `bytes=${offset}-` } : {};
   let response = await fetch(asset.url, { headers, redirect: "follow" });

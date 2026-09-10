@@ -23,13 +23,11 @@
     },
     "translation": {
       "euro": "models/translation/euro",
-      "afri": "models/translation/afri",
       "qvac_model_type": "nmtcpp-translation",
       "runtime": "@qvac/translation-nmtcpp",
       "pivot_language": "en",
       "target_language": "es",
-      "euro_languages": ["de", "es", "fr", "it", "pt", "fi", "cs", "nl", "sv"],
-      "afri_languages": ["am", "ha", "ig", "ln", "so", "sw", "yo", "zu"]
+      "euro_languages": ["de", "es", "fr", "it", "pt", "fi", "cs", "nl", "sv"]
     },
     "ocr": {
       "recognizer_path": "models/ocr/latin-g2.gguf",

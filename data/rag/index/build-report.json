@@ -1,6 +1,6 @@
 {
-  "sources": 62,
-  "chunks": 4924,
+  "sources": 54,
+  "chunks": 4222,
   "source_chunks": {
     "who-scf-general": 7,
     "who-scf-trauma": 9,
@@ -41,14 +41,6 @@
     "who-medical-emergency-checklist": 2,
     "panama-law-81": 17,
     "panama-decree-285": 19,
-    "panama-medical-ethics": 39,
-    "minsa-history-adult": 2,
-    "minsa-adult-health-standards": 131,
-    "minsa-hypertensive-crisis": 6,
-    "minsa-influenza-severe": 33,
-    "minsa-snakebite": 3,
-    "minsa-scorpionism": 129,
-    "minsa-dengue": 359,
     "fhir-medication-request": 302,
     "fhir-medication-administration": 210,
     "fhir-service-request": 244,
@@ -65,5 +57,38 @@
     "who-medication-safety-transitions-2019": 158,
     "who-medication-without-harm-2024": 133
   },
-  "skipped": []
+  "skipped": [
+    {
+      "id": "panama-medical-ethics",
+      "reason": "redistribution_not_permitted"
+    },
+    {
+      "id": "minsa-history-adult",
+      "reason": "redistribution_not_permitted"
+    },
+    {
+      "id": "minsa-adult-health-standards",
+      "reason": "redistribution_not_permitted"
+    },
+    {
+      "id": "minsa-hypertensive-crisis",
+      "reason": "redistribution_not_permitted"
+    },
+    {
+      "id": "minsa-influenza-severe",
+      "reason": "redistribution_not_permitted"
+    },
+    {
+      "id": "minsa-snakebite",
+      "reason": "redistribution_not_permitted"
+    },
+    {
+      "id": "minsa-scorpionism",
+      "reason": "redistribution_not_permitted"
+    },
+    {
+      "id": "minsa-dengue",
+      "reason": "redistribution_not_permitted"
+    }
+  ]
 }

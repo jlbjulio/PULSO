@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { tagTranslationInput } from "../src/qvac/engine.js";
+import { parseDiarization, tagTranslationInput } from "../src/qvac/engine.js";
 import { normalizeExtraction } from "../src/qvac/normalize.js";
 
 describe("PULSO extraction normalization", () => {
@@ -50,7 +50,24 @@ describe("PULSO extraction normalization", () => {
 
 describe("TranslatePsy target selection", () => {
   it("adds the documented target tag only for English source text", () => {
-    expect(tagTranslationInput("Chest pain", "en", "es")).toBe("##ES Chest pain");
-    expect(tagTranslationInput("Dolor torácico", "es", "en")).toBe("Dolor torácico");
+    expect(tagTranslationInput("Chest pain", "en", "es")).toBe(
+      "##ES Chest pain",
+    );
+    expect(tagTranslationInput("Dolor torácico", "es", "en")).toBe(
+      "Dolor torácico",
+    );
+  });
+});
+
+describe("Sortformer diarization", () => {
+  it("normalizes seconds and clock timestamps to milliseconds", () => {
+    expect(
+      parseDiarization(
+        "Speaker 2: 3.25s - 7.5s\nSpeaker 1: 00:00:08.0 - 00:00:10.5",
+      ),
+    ).toEqual([
+      { speaker: 2, startMs: 3250, endMs: 7500 },
+      { speaker: 1, startMs: 8000, endMs: 10500 },
+    ]);
   });
 });

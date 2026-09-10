@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-import fitz
+import pymupdf
 from openpyxl import load_workbook
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -18,6 +18,12 @@ REPORT = RAG_ROOT / "index" / "build-report.json"
 OCR_CACHE = RAG_ROOT / "index" / "ocr-cache.json"
 CHARS_PER_CHUNK = 1200
 OVERLAP_CHARS = 180
+EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+INTERNATIONAL_PHONE = re.compile(r"(?<!\w)\+\d(?:[\s().-]*\d){7,14}(?!\w)")
+LABELED_PHONE = re.compile(
+    r"\b(?:tel(?:éfono)?|phone|fax)\s*[:.]?\s*(?:\+?\d(?:[\s().-]*\d){6,14})",
+    re.IGNORECASE,
+)
 
 
 def sha256(path: Path) -> str:
@@ -29,11 +35,14 @@ def sha256(path: Path) -> str:
 
 
 def clean(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
+    redacted = EMAIL.sub("[correo omitido]", text)
+    redacted = INTERNATIONAL_PHONE.sub("[teléfono omitido]", redacted)
+    redacted = LABELED_PHONE.sub("[teléfono omitido]", redacted)
+    return re.sub(r"\s+", " ", redacted).strip()
 
 
 def pdf_pages(path: Path) -> list[tuple[str, str]]:
-    document = fitz.open(path)
+    document = pymupdf.open(path)
     return [
         (f"page:{index + 1}", clean(page.get_text("text"))) for index, page in enumerate(document)
     ]
@@ -76,11 +85,14 @@ def chunks(text: str) -> list[str]:
 
 def main() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8-sig"))
-    ocr_cache = json.loads(OCR_CACHE.read_text(encoding="utf-8")) if OCR_CACHE.exists() else {}
+    ocr_cache = json.loads(OCR_CACHE.read_text(encoding="utf-8-sig")) if OCR_CACHE.exists() else {}
     rows: list[dict[str, str]] = []
     skipped: list[dict[str, str]] = []
     source_counts: dict[str, int] = {}
     for source in manifest:
+        if not source.get("include_in_rag", True):
+            skipped.append({"id": source["id"], "reason": "redistribution_not_permitted"})
+            continue
         path = RAG_ROOT / Path(source["local_path"])
         if not path.exists():
             skipped.append({"id": source["id"], "reason": "missing"})

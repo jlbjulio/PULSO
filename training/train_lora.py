@@ -23,23 +23,24 @@ REPORT = OUTPUT / "training-report.json"
 BRIDGE = ROOT / "training" / "qvac_finetune.ts"
 
 LORA_CONFIG = {
-    "loraRank": 8,
-    "loraAlpha": 16,
+    "loraRank": 16,
+    "loraAlpha": 32,
     "loraSeed": 42,
     "loraModules": "attn_q,attn_k,attn_v,attn_o",
 }
 TRAINING_CONFIG = {
-    "numberOfEpochs": 1,
-    "learningRate": 0.0001,
+    "numberOfEpochs": 3,
+    "learningRate": 0.00005,
     "lrScheduler": "cosine",
     "lrMin": 1e-8,
     "warmupRatio": 0.05,
     "warmupRatioSet": True,
-    "contextLength": 1024,
+    "contextLength": 1536,
     "batchSize": 128,
-    "microBatchSize": 64,
+    "microBatchSize": 32,
     "assistantLossOnly": True,
-    "checkpointSaveSteps": 50,
+    "checkpointSaveSteps": 0,
+    "weightDecay": 0.01,
 }
 
 
@@ -72,6 +73,8 @@ def tensorboard() -> Path:
 
 def train() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
+    run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    candidate_adapter = OUTPUT / f"pulso-medpsy-lora-{run_id}.gguf"
     npx = shutil.which("npx")
     if not npx:
         raise RuntimeError("npx is required; install the Node dependencies first")
@@ -79,9 +82,8 @@ def train() -> None:
         "modelPath": str(MODEL),
         "trainPath": str(TRAIN),
         "validationPath": str(VALIDATION),
-        "adapterPath": str(ADAPTER),
-        "checkpointPath": str(OUTPUT / "checkpoints"),
-        "modelConfig": {"device": "gpu", "ctx_size": 1024, "gpu_layers": 20},
+        "adapterPath": str(candidate_adapter),
+        "modelConfig": {"device": "gpu", "ctx_size": 1536, "gpu_layers": 20},
         "options": {**TRAINING_CONFIG, **LORA_CONFIG},
     }
     REQUEST.write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
@@ -99,7 +101,7 @@ def train() -> None:
     result: dict[str, object] = {}
     last_event: dict[str, object] = {}
     assert process.stdout is not None
-    with SummaryWriter(str(tensorboard() / datetime.now().strftime("%Y%m%d-%H%M%S"))) as writer:
+    with SummaryWriter(str(tensorboard() / run_id)) as writer:
         for line in process.stdout:
             line = line.rstrip()
             if line.startswith("PULSO_PROGRESS "):
@@ -122,8 +124,9 @@ def train() -> None:
                 print(line)
     if process.wait() != 0:
         raise RuntimeError("QVAC fine-tuning failed")
-    if result.get("status") != "COMPLETED" or not ADAPTER.exists():
-        raise RuntimeError(f"fine-tuning did not create {ADAPTER}")
+    if result.get("status") != "COMPLETED" or not candidate_adapter.exists():
+        raise RuntimeError(f"fine-tuning did not create {candidate_adapter}")
+    candidate_adapter.replace(ADAPTER)
     report = {
         "completed_at": datetime.now().astimezone().isoformat(),
         "base_model": str(MODEL.relative_to(ROOT)),
