@@ -23,8 +23,8 @@ REPORT = OUTPUT / "training-report.json"
 BRIDGE = ROOT / "training" / "qvac_finetune.ts"
 
 LORA_CONFIG = {
-    "loraRank": 16,
-    "loraAlpha": 32,
+    "loraRank": 8,
+    "loraAlpha": 16,
     "loraSeed": 42,
     "loraModules": "attn_q,attn_k,attn_v,attn_o",
 }
@@ -35,9 +35,9 @@ TRAINING_CONFIG = {
     "lrMin": 1e-8,
     "warmupRatio": 0.05,
     "warmupRatioSet": True,
-    "contextLength": 1536,
-    "batchSize": 128,
-    "microBatchSize": 32,
+    "contextLength": 1024,
+    "batchSize": 256,
+    "microBatchSize": 64,
     "assistantLossOnly": True,
     "checkpointSaveSteps": 0,
     "weightDecay": 0.01,
@@ -83,7 +83,7 @@ def train() -> None:
         "trainPath": str(TRAIN),
         "validationPath": str(VALIDATION),
         "adapterPath": str(candidate_adapter),
-        "modelConfig": {"device": "gpu", "ctx_size": 1536, "gpu_layers": 20},
+        "modelConfig": {"device": "gpu", "ctx_size": 1024, "gpu_layers": 20},
         "options": {**TRAINING_CONFIG, **LORA_CONFIG},
     }
     REQUEST.write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
