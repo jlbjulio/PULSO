@@ -6,8 +6,8 @@
   "task": "clinical_event_extraction_and_state_classification",
   "output_schema": "../../schemas/clinical-events.schema.json",
   "splits": {
-    "train": 345,
-    "validation": 69,
+    "train": 30,
+    "validation": 10,
     "test": 69
   },
   "scenario_families": [
@@ -34,8 +34,8 @@
   "generated_on": "2026-09-01",
   "hard_negative_examples": {
     "purpose": "reduce false clinical events and distinguish the word pulso from the wake word",
-    "train": 60,
-    "validation": 12,
+    "train": 5,
+    "validation": 1,
     "test": 12
   }
 }
