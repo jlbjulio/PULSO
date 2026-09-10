@@ -319,7 +319,6 @@ function App() {
   const [activeView, setActiveView] = useState<"conversation" | "clinical">("conversation");
   const audioSession = useRef<AudioSession | null>(null);
   const conversationRef = useRef<HTMLDivElement | null>(null);
-  const spokenTranslations = useRef(new Set<string>());
 
   const encounter = snapshot?.encounter;
   const isCritical = encounter?.state === "critical";
@@ -383,7 +382,6 @@ function App() {
       "Analizando hechos clínicos",
     );
     setSnapshot(result);
-    void speakNewTranslations(result);
   }
 
   async function runScenario(index: number) {
@@ -421,7 +419,6 @@ function App() {
         blocking,
       );
       setSnapshot(result);
-      void speakNewTranslations(result);
     } catch (error) {
       if (blocking) throw error;
     } finally {
@@ -532,24 +529,6 @@ function App() {
     await audio.play();
   }
 
-  async function speakNewTranslations(result: Snapshot) {
-    if (result.encounter.language === "es") return;
-    const pending = result.utterances.filter(
-      (utterance) =>
-        utterance.language === "es" &&
-        Boolean(utterance.translated_text) &&
-        !spokenTranslations.current.has(utterance.id),
-    );
-    for (const utterance of pending) {
-      spokenTranslations.current.add(utterance.id);
-      try {
-        await playTranslation(utterance, result.encounter.language, false);
-      } catch {
-        spokenTranslations.current.delete(utterance.id);
-      }
-    }
-  }
-
   async function identifyPatient() {
     if (!encounter || !patientRef.trim()) return;
     const result = await request<Snapshot>({
@@ -623,7 +602,6 @@ function App() {
     setPatientRef("");
     setSignatureOrder(null);
     setActiveView("conversation");
-    spokenTranslations.current.clear();
   }
 
   if (!snapshot) {
