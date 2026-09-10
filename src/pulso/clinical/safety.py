@@ -5,12 +5,12 @@ import re
 
 from .events import ORDER_TYPES, ActorRole, ClinicalEvent, EventState
 
-WAKE_WORD = re.compile(r"^\s*pulso\s*[,;:]?\s+", re.IGNORECASE)
+WAKE_WORD = re.compile(r"(?:^|[.!?]\s+)pulso\s*[,;:]?\s+", re.IGNORECASE)
 AUTHORIZED_ORDER_ROLES = {ActorRole.PHYSICIAN, ActorRole.NURSE, ActorRole.PARAMEDIC}
 
 
 def explicit_command(text: str) -> str | None:
-    match = WAKE_WORD.match(text)
+    match = WAKE_WORD.search(text)
     if not match:
         return None
     command = text[match.end() :].strip()

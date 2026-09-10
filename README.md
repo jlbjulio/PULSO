@@ -1,103 +1,90 @@
 # PULSO
 
-PULSO es un copiloto local de operaciones clínicas para salas de urgencias. Convierte conversaciones y documentos en una línea temporal verificable, mantiene separadas las decisiones consideradas de las acciones realizadas y coordina órdenes mediante confirmación y firma profesional.
+PULSO es un copiloto de operaciones clínicas para salas de urgencias. Escucha la atención, conserva únicamente los hechos relevantes, traduce cuando existe una barrera de idioma y coordina órdenes clínicas mediante comandos de voz, revisión y firma profesional.
 
-La inferencia y el RAG se ejecutan en el dispositivo con QVAC. El audio, los documentos y los datos clínicos no se envían a servicios de IA remotos.
+## Funcionamiento
 
-## Flujo de uso
+1. El profesional abre una atención por cubículo. El paciente recibe una referencia provisional que puede actualizarse cuando sea identificado.
+2. En operación normal, el micrófono permanece activo. Whisper transcribe por fragmentos y Sortformer separa las intervenciones. La conversación completa permanece visible durante la atención, separada del registro clínico relevante.
+3. Cuando detecta otro idioma, PULSO lo conserva como idioma del paciente. TranslatePsy traduce al español lo dicho por el paciente y traduce hacia su idioma las respuestas del profesional. Supertonic reproduce estas traducciones dentro de la misma conversación.
+4. Cuando detecta una orden, medicamento, activación crítica o traslado, el RAG recupera contexto local de emergencia, seguridad e interoperabilidad. MedPsy utiliza ese contexto para normalizar términos y validar la estructura, sin convertir una fuente externa en un hecho del paciente.
+5. MedPsy con el adaptador LoRA de PULSO extrae síntomas, antecedentes, signos vitales, hallazgos, diagnósticos documentados, intervenciones, resultados y órdenes.
+6. Solo una instrucción explícita iniciada con `Pulso` crea una orden. El profesional debe revisar y firmar antes de enviarla al equipo, especialista o servicio correspondiente.
+7. Al finalizar, PULSO genera un informe clínico de Word únicamente con los hechos relevantes, la identificación, los hallazgos, las órdenes, la cronología clínica y la firma, además de un paquete FHIR R4. Después puede iniciarse una nueva atención.
 
-1. El profesional inicia una atención y activa la escucha.
-2. Whisper transcribe el audio, Sortformer separa voces y MedPsy extrae únicamente hechos clínicos respaldados por la conversación.
-3. TranslatePsy ayuda cuando existe una barrera de idioma y Supertonic permite escuchar la traducción. OCR incorpora imágenes y PDF después de revisión humana.
-4. Las posibilidades discutidas quedan como consideradas. Solo una instrucción explícita que empiece con `Pulso` puede crear un borrador de orden.
-5. El profesional revisa, confirma y firma antes del envío al área correspondiente.
-6. PULSO conserva eventos, estados, evidencia, documentos y órdenes en una base local con auditoría encadenada.
-7. Al finalizar, genera una nota firmada y un paquete FHIR R4 local.
+La demostración incluye casos sintéticos completos y una captura por micrófono bajo demanda. La operación normal utiliza escucha continua.
 
-En modo crítico la captura continúa sin interrumpir la atención y la conciliación queda para un momento seguro.
+## Componentes
 
-## Capacidades
+- `src/app/`: aplicación de escritorio Electron y React.
+- `src/pulso/clinical/`: atenciones, eventos, seguridad, órdenes e informes.
+- `src/pulso/storage/`: SQLite, auditoría, destinos y cola local.
+- `src/pulso/ai/`: audio, traducción, RAG y extracción clínica.
+- `src/qvac/`: inferencia local mediante `@qvac/sdk`.
+- `training/`: entrenamiento y evaluación del adaptador LoRA.
+- `data/`: corpus RAG, evaluación y datos sintéticos de fine-tuning.
 
-- Aplicación de escritorio para Windows construida con Electron, React y TypeScript.
-- Captura por micrófono o texto con ASR, diarización y extracción estructurada.
-- Órdenes para imagenología, laboratorio, farmacia, procedimientos, transporte, interconsultas y equipos de respuesta.
-- Estados de lazo cerrado, firma local, idempotencia, cancelación y cola offline.
-- OCR de imágenes y PDF con evidencia por bloque y página.
-- Traducción entre español, inglés, portugués, francés, alemán, italiano, neerlandés, finés, checo y sueco.
-- Lectura local en voz alta de transcripciones y traducciones.
-- RAG local sobre 54 fuentes identificadas de WHO, HL7 y normativa oficial de Panamá.
-- Historial auditable mediante hashes SHA-256 y exportación interoperable FHIR R4.
-- Registro estructurado de carga, prompts, tokens, TTFT, latencia y throughput en `runtime-data/performance.jsonl`.
-
-## Estructura
-
-- `src/app/`: interfaz React y aplicación de escritorio Electron.
-- `src/pulso/clinical/`: eventos, atenciones, órdenes y documentación clínica.
-- `src/pulso/storage/`: base local, auditoría, routing y cola de entrega.
-- `src/pulso/ai/`: audio, traducción, OCR, RAG y extracción clínica.
-- `src/qvac/`: motor TypeScript conectado directamente con `@qvac/sdk`.
-- `training/`: preparación, entrenamiento y evaluación del LoRA.
-- `data/`: fuentes y corpus RAG, evaluaciones y conjuntos sintéticos.
-
-## Modelos locales
+## Modelos
 
 | Función | Modelo |
 | --- | --- |
-| Extracción clínica | `qvac/MedPsy-1.7B-GGUF`, Q8_0, con adaptador LoRA obligatorio de PULSO |
-| Traducción | `qvac/TranslatePsy-EuroNano`, INTGEMM |
+| Extracción clínica | `qvac/MedPsy-1.7B-GGUF`, Q8_0, con LoRA de PULSO |
 | Transcripción | Whisper Small Q8_0 y Silero VAD 5.1.2 |
 | Diarización | Sortformer 4SPK v2.1 Q4_0 |
-| OCR | OCR Latin G2 y CRAFT |
 | RAG | EmbeddingGemma 300M Q4_0 |
+| Traducción | `qvac/TranslatePsy-EuroNano`, INTGEMM |
 | Voz | Supertonic 3 Q4_0 |
+| Preparación de fuentes escaneadas | OCR Latin G2 y CRAFT |
 
-MedPsy es el modelo central del flujo principal. Todos los modelos se cargan mediante `@qvac/sdk` 0.19.0 y se descargan bajo `models/`, fuera del control de versiones.
+MedPsy, Whisper, Sortformer, EmbeddingGemma, las dos direcciones de TranslatePsy y los idiomas configurados de Supertonic se cargan una sola vez antes de mostrar la aplicación y permanecen disponibles durante la sesión. Traducción y voz solo ejecutan inferencia cuando el caso lo requiere. Toda la inferencia principal y el RAG se ejecutan localmente mediante QVAC; no se utilizan APIs de inferencia remota.
 
-La aplicación no utiliza APIs remotas durante su operación. La red solo interviene durante la preparación inicial para descargar dependencias, modelos y fuentes desde las ubicaciones declaradas.
+Cada ejecución registra modelo, cuantización, carga, prompt, tokens, TTFT, latencia y throughput en `runtime-data/performance.jsonl`.
 
 ## Instalación
 
-Requiere Windows 11, Python 3.11 o superior, Node.js 22.17 o superior y aproximadamente 12 GB libres. No se utiliza un entorno virtual de Python. La configuración validada utiliza un AMD Ryzen 7 5800H, 15.3 GB de RAM y una NVIDIA RTX 3050 Laptop de 4 GB.
+Requiere Windows 11, Python 3.11 o superior, Node.js 22.17 o superior y aproximadamente 12 GB libres. El proyecto utiliza la instalación principal de Python, sin entorno virtual. El hardware de referencia es un AMD Ryzen 7 5800H, 15.3 GB de RAM y una NVIDIA RTX 3050 Laptop de 4 GB.
 
 ```console
 python tools/prepare_environment.py
 ```
 
-El instalador descarga dependencias, modelos y fuentes desde sus ubicaciones oficiales, verifica los checksums, crea la base local e indexa el corpus RAG. Para abrir la aplicación:
+El comando instala dependencias, descarga los modelos, prepara las fuentes, crea el índice RAG y configura la base local. Para abrir PULSO:
 
 ```console
 npm run app
 ```
 
-Activa `Entorno de demostración` en la pantalla inicial para trabajar con datos sintéticos. `Guía demo` recorre captura por texto o micrófono, traducción, extracción clínica, orden firmada, respuesta del área, OCR, evidencia local, modo crítico y exportación. La inferencia sigue siendo real; únicamente las respuestas de las áreas hospitalarias se simulan y aparecen identificadas en la interfaz.
+La aplicación espera la carga de todos los modelos antes de mostrar la ventana y evita recargarlos entre acciones durante la sesión.
 
-Para comprobar el repositorio:
+## Entrenamiento
 
-```console
-npm run check
-```
-
-## Entrenamiento local
-
-El conjunto SFT contiene 42 casos de entrenamiento, 10 de validación y 69 de prueba, todos sintéticos. Incluye negativos difíciles para reducir eventos falsos y distinguir la palabra clínica “pulso” del comando de activación. El ajuste LoRA especializa la extracción de hechos, negaciones, correcciones, estados e intención explícita; no entrena recomendaciones clínicas.
+El conjunto SFT contiene 42 casos de entrenamiento, 10 de validación y 69 de prueba. Todos son sintéticos y están diseñados para distinguir hechos, negaciones, correcciones, acciones realizadas, ideas consideradas y comandos explícitos.
 
 ```console
 npm run train
 npm run train:evaluate
 ```
 
-El entrenamiento se ejecuta localmente y abre TensorBoard en `http://127.0.0.1:6006`. El adaptador anterior se conserva si el proceso falla; solo una ejecución completada reemplaza `training/output/pulso-medpsy-lora.gguf`, que la aplicación carga automáticamente.
+El entrenamiento se realiza localmente. TensorBoard queda disponible en `http://127.0.0.1:6006` y el adaptador final se guarda en `training/output/pulso-medpsy-lora.gguf`.
+
+## Verificación
+
+```console
+npm run check
+```
+
+La validación del micrófono y del flujo clínico completo debe realizarse manualmente desde la aplicación con datos sintéticos.
 
 ## Seguridad y limitaciones
 
-PULSO es una herramienta de apoyo operativo y no es un dispositivo médico validado. No diagnostica, prescribe ni ejecuta órdenes de forma autónoma. Una mención de medicamento no equivale a una administración. Toda orden requiere intención explícita, revisión, identidad y firma profesional.
+PULSO es una herramienta de apoyo operativo y no es un dispositivo médico validado. No diagnostica, prescribe ni ejecuta órdenes de forma autónoma. Una posibilidad discutida no se registra como una acción realizada y una mención de medicamento no equivale a su administración. Toda orden requiere intención explícita, revisión, identidad y firma profesional.
 
-Las salidas inciertas conservan su evidencia y pasan a revisión. El sistema no sustituye los protocolos, canales oficiales de emergencia ni intérpretes clínicos. Las demostraciones deben utilizar datos sintéticos.
+Las salidas inciertas permanecen sujetas a revisión. El sistema no sustituye el criterio clínico, los protocolos hospitalarios, los canales oficiales de emergencia ni los servicios de interpretación profesional.
 
 ## Datos, licencias y base preexistente
 
-El código propio se distribuye bajo MIT. Los modelos, documentos y componentes de terceros conservan sus licencias originales. El origen, la URL, el checksum y el estado de inclusión de cada fuente están registrados en `data/rag/manifest.json`; `data/rag/sources.csv` enumera el corpus activo.
+El código propio se distribuye bajo MIT. Los modelos, fuentes y componentes de terceros conservan sus licencias originales. `data/rag/manifest.json` registra origen, URL, checksum, atribución y estado de inclusión; `data/rag/sources.csv` enumera el corpus activo.
 
-El corpus utiliza 45 publicaciones de WHO, 7 definiciones base de HL7 FHIR y 2 textos legales oficiales de Panamá. La procedencia, atribución, URL y condiciones aplicables de cada fuente se conservan en el manifiesto. El índice se genera localmente y omite correos y teléfonos detectables durante la extracción.
+El corpus activo contiene 45 publicaciones de WHO, 7 definiciones de HL7 FHIR y 2 textos legales oficiales de Panamá. El índice se genera localmente y omite correos y teléfonos detectables durante la extracción.
 
-La base preexistente estaba compuesta por el repositorio inicial, la licencia, la estructura de carpetas, configuración de modelos, esquemas, scripts de preparación y descarga, manifiesto de fuentes y conjuntos sintéticos preparados por Julio Lara. Los documentos proceden de WHO, HL7 y fuentes oficiales de Panamá; los pesos locales proceden de QVAC, Tether AI Research y el registro de modelos del SDK. Esa base no contenía una aplicación clínica funcional ni integraciones hospitalarias terminadas.
+La base preexistente estaba compuesta por el repositorio inicial, licencia, estructura, configuración de modelos, esquemas, scripts de preparación y descarga, manifiesto de fuentes y conjuntos sintéticos preparados por Julio Lara. Los documentos proceden de WHO, HL7 y fuentes oficiales de Panamá; los pesos locales proceden de QVAC, Tether AI Research y el registro de modelos del SDK.

@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { createInterface } from "node:readline";
 
 import {
   closeQvac,
@@ -9,6 +10,7 @@ import {
   indexRag,
   listRagWorkspaces,
   parseDiarization,
+  preloadCoreModels,
   readDocument,
   readDocuments,
   searchRag,
@@ -17,6 +19,80 @@ import {
   transcribeAudio,
   translateText,
 } from "./engine.js";
+
+type ServerRequest = {
+  command: string;
+  options?: Record<string, unknown>;
+};
+
+async function execute(command: string, options: Record<string, unknown>): Promise<unknown> {
+  const value = (name: string, fallback?: unknown) => options[name] ?? fallback;
+  if (command === "warmup") return preloadCoreModels();
+  if (command === "health") {
+    const paths = [
+      "models/clinical/medpsy-1.7b-q8_0.gguf",
+      "training/output/pulso-medpsy-lora.gguf",
+      "models/speech/whisper-small-q8_0.bin",
+      "models/speech/sortformer-4spk-v2.1-q4_0.gguf",
+      "models/ocr/latin-g2.gguf",
+      "models/embeddings/embeddinggemma-300m-q4_0.gguf",
+      "models/speech/supertonic3-q4_0.gguf",
+    ];
+    return {
+      local_only: true,
+      files: Object.fromEntries(paths.map((path) => [path, existsSync(resolve(path))])),
+    };
+  }
+  if (command === "extract") return extractClinicalEvents(value("input_json") as Parameters<typeof extractClinicalEvents>[0]);
+  if (command === "transcribe") return transcribeAudio(String(value("audio")));
+  if (command === "diarize") {
+    const raw = await diarizeAudio(String(value("audio")));
+    return { segments: parseDiarization(raw), raw };
+  }
+  if (command === "audio-pipeline") return analyzeConversation(String(value("audio")));
+  if (command === "translate") {
+    const target = String(value("target", "es"));
+    return {
+      translated_text: await translateText(String(value("text")), String(value("source")), target),
+      target,
+    };
+  }
+  if (command === "ocr") return readDocument(String(value("image")));
+  if (command === "ocr-batch") return readDocuments(value("images_json") as string[]);
+  if (command === "rag-index") return indexRag(String(value("corpus", "data/rag/index/corpus.jsonl")));
+  if (command === "rag-workspaces") return { workspaces: await listRagWorkspaces() };
+  if (command === "rag-reset") return resetPulsoRag();
+  if (command === "rag-search") {
+    const results = await searchRag(
+      String(value("query")),
+      String(value("workspace", "pulso-clinical")),
+      Number(value("top_k", 5)),
+    );
+    return { results };
+  }
+  if (command === "tts") {
+    const output = String(value("output"));
+    await synthesize(String(value("text")), output, String(value("language", "es")));
+    return { output: resolve(output) };
+  }
+  throw new Error(`Unknown QVAC command: ${command}`);
+}
+
+async function serve(): Promise<void> {
+  const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
+  for await (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const request = JSON.parse(line) as ServerRequest;
+      const data = await execute(request.command, request.options ?? {});
+      process.stdout.write(`__PULSO__${JSON.stringify({ ok: true, data })}\n`);
+    } catch (error) {
+      process.stdout.write(
+        `__PULSO__${JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) })}\n`,
+      );
+    }
+  }
+}
 
 function option(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -103,11 +179,19 @@ async function run(): Promise<void> {
   throw new Error("Use health, extract, transcribe, diarize, audio-pipeline, translate, ocr, ocr-batch, rag-index, rag-search, rag-workspaces, rag-reset, or tts.");
 }
 
-try {
-  await run();
-} catch (error) {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = 1;
-} finally {
-  await closeQvac();
+if (process.argv[2] === "server") {
+  try {
+    await serve();
+  } finally {
+    await closeQvac();
+  }
+} else {
+  try {
+    await run();
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  } finally {
+    await closeQvac();
+  }
 }

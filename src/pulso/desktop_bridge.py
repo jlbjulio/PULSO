@@ -1,20 +1,14 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from langdetect import LangDetectException, detect
-
-from pulso.ai.documents import DocumentService
-from pulso.ai.rag import RetrievalService
 from pulso.ai.runtime import QvacRuntime
 from pulso.ai.speech import SpeechOutputService
-from pulso.ai.translation import TranslationService
-from pulso.clinical.documentation import build_document, save_document
+from pulso.clinical.documentation import build_document, export_word_report, save_document
 from pulso.clinical.encounter_service import EncounterService
 from pulso.clinical.events import ORDER_TYPES, ActorRole
 from pulso.clinical.fhir import export_bundle
@@ -22,8 +16,6 @@ from pulso.clinical.order_service import OrderService
 from pulso.clinical.orders import OrderState
 from pulso.storage.database import PROJECT_ROOT, SQLiteDatabase
 from pulso.storage.repository import EncounterRepository
-
-SUPPORTED_TRANSLATION_LANGUAGES = {"en", "es", "pt", "fr", "de", "it", "nl", "fi", "cs", "sv"}
 
 
 def database_for(demo: bool) -> SQLiteDatabase:
@@ -93,12 +85,18 @@ def process(request: dict[str, Any]) -> Any:
     encounter_id = str(request.get("encounter_id", ""))
 
     if action == "initialize":
+        if request.get("warmup"):
+            QvacRuntime().warmup()
         return {"ready": True, "demo": demo, "dashboard": repository.dashboard()}
     if action == "reset_demo":
         return reset_demo(database)
     if action == "start":
+        patient_ref = str(request.get("patient_ref", "")).strip()
+        if not patient_ref:
+            prefix = "DEMO" if demo else "URG"
+            patient_ref = f"{prefix}-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
         encounter = encounters.start(
-            patient_ref=str(request["patient_ref"]),
+            patient_ref=patient_ref,
             bed=str(request["bed"]),
             clinician_id=str(request["clinician_id"]),
             language=str(request.get("language", "es")),
@@ -106,24 +104,21 @@ def process(request: dict[str, Any]) -> Any:
         return snapshot(repository, encounter.id)
     if action == "snapshot":
         return snapshot(repository, encounter_id)
+    if action == "identify_patient":
+        repository.update_patient_ref(
+            encounter_id,
+            str(request["patient_ref"]),
+            actor=str(request["actor"]),
+        )
+        return snapshot(repository, encounter_id)
     if action in {"capture_text", "capture_audio"}:
         if action == "capture_text":
             text = str(request["text"])
-            language = str(request.get("language", "auto"))
-            if language == "auto":
-                try:
-                    language = detect(text)
-                except LangDetectException:
-                    language = "unknown"
-            translated = None
-            if language in SUPPORTED_TRANSLATION_LANGUAGES - {"es"}:
-                translated = TranslationService().to_spanish(text, language)
             events = encounters.capture_text(
                 encounter_id,
                 text,
-                speaker=ActorRole(str(request.get("speaker", "physician"))),
-                language=language,
-                translated_text=translated,
+                speaker=ActorRole(str(request.get("speaker", "unknown"))),
+                language=str(request.get("language", "auto")),
             )
         else:
             events = encounters.capture_audio(encounter_id, str(request["audio_path"]))
@@ -136,9 +131,6 @@ def process(request: dict[str, Any]) -> Any:
                 except Exception as error:
                     if "UNIQUE constraint" not in str(error):
                         raise
-        return snapshot(repository, encounter_id)
-    if action == "critical":
-        encounters.critical_mode(encounter_id, actor=str(request["actor"]))
         return snapshot(repository, encounter_id)
     if action == "order_confirm_dispatch":
         order_id = str(request["order_id"])
@@ -163,29 +155,6 @@ def process(request: dict[str, Any]) -> Any:
         elif order.state == OrderState.IN_PROGRESS:
             orders.complete(order.id, actor=actor)
         return snapshot(repository, encounter_id)
-    if action == "rag_search":
-        results = RetrievalService().search(
-            str(request["query"]), str(request.get("workspace", "pulso-emergency-ops"))
-        )
-        if encounter_id:
-            repository.save_rag_check(
-                encounter_id,
-                query=str(request["query"]),
-                results=results,
-                actor=str(request.get("actor", "local.clinician")),
-            )
-        return {"results": results}
-    if action == "import_document":
-        path = Path(str(request["path"])).resolve()
-        blocks = DocumentService().read(path)
-        repository.save_evidence_document(
-            encounter_id,
-            local_path=str(path),
-            sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-            ocr_blocks=blocks,
-            actor=str(request["actor"]),
-        )
-        return {"blocks": blocks, "snapshot": snapshot(repository, encounter_id)}
     if action == "speak":
         output = PROJECT_ROOT / "runtime-data" / "speech" / f"{uuid4()}.wav"
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -198,29 +167,45 @@ def process(request: dict[str, Any]) -> Any:
         signature = str(request["signature"])
         encounters.begin_review(encounter_id, actor=actor)
         document = build_document(encounter_id, repository.list_events(encounter_id))
-        save_document(repository, document, actor=actor, signature=signature)
+        document = save_document(repository, document, actor=actor, signature=signature)
         closed = encounters.close(encounter_id, actor=actor)
+        events = repository.list_events(encounter_id)
+        current_orders = repository.list_orders(encounter_id)
         bundle = export_bundle(
             closed,
-            repository.list_events(encounter_id),
-            repository.list_orders(encounter_id),
+            events,
+            current_orders,
         )
-        output = PROJECT_ROOT / "runtime-data" / "exports" / f"{encounter_id}.fhir.json"
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        return {"snapshot": snapshot(repository, encounter_id), "export_path": str(output)}
+        export_directory = PROJECT_ROOT / "runtime-data" / "exports"
+        fhir_output = export_directory / f"{encounter_id}.fhir.json"
+        report_output = export_directory / f"{encounter_id}.docx"
+        export_directory.mkdir(parents=True, exist_ok=True)
+        fhir_output.write_text(
+            json.dumps(bundle, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        export_word_report(closed, document, events, current_orders, report_output)
+        return {
+            "snapshot": snapshot(repository, encounter_id),
+            "report_path": str(report_output),
+            "fhir_path": str(fhir_output),
+        }
     if action == "health":
         return QvacRuntime().health()
     raise ValueError(f"unknown desktop action: {action}")
 
 
 def main() -> None:
-    try:
-        request = json.loads(sys.stdin.read())
-        response = {"ok": True, "data": process(request)}
-    except Exception as error:
-        response = {"ok": False, "error": str(error)}
-    sys.stdout.write(json.dumps(response, ensure_ascii=False))
+    for line in sys.stdin:
+        if not line.strip():
+            continue
+        try:
+            request = json.loads(line)
+            response = {"ok": True, "data": process(request)}
+        except Exception as error:
+            response = {"ok": False, "error": str(error)}
+        sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+        sys.stdout.flush()
 
 
 if __name__ == "__main__":

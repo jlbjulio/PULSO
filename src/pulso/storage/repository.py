@@ -110,6 +110,48 @@ class EncounterRepository:
             )
         return updated
 
+    def update_patient_ref(self, encounter_id: str, patient_ref: str, *, actor: str) -> Encounter:
+        value = patient_ref.strip()
+        if not value:
+            raise ValueError("patient reference cannot be empty")
+        with self.database.transaction() as connection:
+            connection.execute(
+                "UPDATE encounters SET patient_ref=? WHERE id=?",
+                (value, encounter_id),
+            )
+            connection.execute(
+                "UPDATE clinical_events SET patient_ref=? WHERE encounter_id=?",
+                (value, encounter_id),
+            )
+            append_audit_event(
+                connection,
+                entity_type="encounter",
+                entity_id=encounter_id,
+                action="patient.identified",
+                actor=actor,
+                payload={"patient_ref": value},
+            )
+        return self.get(encounter_id)
+
+    def update_language(self, encounter_id: str, language: str, *, actor: str) -> Encounter:
+        value = language.strip().casefold()
+        if not value:
+            raise ValueError("encounter language cannot be empty")
+        with self.database.transaction() as connection:
+            connection.execute(
+                "UPDATE encounters SET language=? WHERE id=?",
+                (value, encounter_id),
+            )
+            append_audit_event(
+                connection,
+                entity_type="encounter",
+                entity_id=encounter_id,
+                action="language.updated",
+                actor=actor,
+                payload={"language": value},
+            )
+        return self.get(encounter_id)
+
     def add_utterance(self, encounter_id: str, utterance: Utterance) -> None:
         with self.database.transaction() as connection:
             connection.execute(
@@ -195,47 +237,6 @@ class EncounterRepository:
             )
             for row in rows
         ]
-
-    def save_evidence_document(
-        self,
-        encounter_id: str,
-        *,
-        local_path: str,
-        sha256: str,
-        ocr_blocks: list[dict[str, Any]],
-        actor: str,
-    ) -> str:
-        document_id = str(uuid4())
-        payload = {
-            "id": document_id,
-            "encounter_id": encounter_id,
-            "local_path": local_path,
-            "sha256": sha256,
-            "ocr_blocks": ocr_blocks,
-        }
-        with self.database.transaction() as connection:
-            connection.execute(
-                """INSERT INTO evidence_documents
-                (id, encounter_id, local_path, sha256, ocr_blocks_json, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)""",
-                (
-                    document_id,
-                    encounter_id,
-                    local_path,
-                    sha256,
-                    canonical_json(ocr_blocks),
-                    utc_iso(),
-                ),
-            )
-            append_audit_event(
-                connection,
-                entity_type="evidence_document",
-                entity_id=document_id,
-                action="ocr.review_required",
-                actor=actor,
-                payload=payload,
-            )
-        return document_id
 
     def save_rag_check(
         self,

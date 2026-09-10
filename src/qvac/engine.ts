@@ -17,6 +17,7 @@ import {
   transcribe,
   translate,
   unloadModel,
+  type LoadModelOptions,
 } from "@qvac/sdk";
 
 import { writeMetric } from "./metrics.js";
@@ -49,22 +50,170 @@ const extractionSchema = JSON.parse(
   await readFile(resolve(root, "schemas/clinical-events.schema.json"), "utf8"),
 ) as Record<string, unknown>;
 
+const loadedModels = new Map<string, Promise<string>>();
+
 if (config.runtime.allow_cloud_inference) {
   throw new Error("PULSO refuses to start when cloud inference is enabled.");
 }
 
 const systemPrompt = `You are PULSO's clinical evidence extraction component.
 Extract only clinically relevant facts explicitly supported by the supplied utterances.
+Use reference_context only to normalize terminology and check workflow consistency; never copy it into the patient record as evidence.
 Preserve speaker, patient reference, evidence utterance IDs, uncertainty, corrections, and temporal state.
 Thinking aloud or suggesting an option is considered, never ordered.
-Only an utterance beginning with the wake word PULSO may be actionable, and it still requires confirmation.
+Only an explicit command clause beginning with the wake word PULSO may be actionable, and it still requires confirmation.
+Requests for a named clinical team, specialist, technical service, psychology, psychiatry, social work, transport, or logistical support are consult_order events.
+Code Blue and explicit critical-response activations are code_event events.
 Mentioning a medication is not administration. Administration requires an explicit statement that it was given.
 Never diagnose, prescribe, infer a dose, fill a missing field, or create an action from background speech.
 Return at most one event for each distinct fact and never duplicate an event.
+Write every payload value in Spanish, even when the source utterance was spoken in another language.
+Never include truncation markers such as [incomplete], [truncated], or unfinished transcript fragments.
 Return only JSON that satisfies the schema.`;
 
 function localPath(path: string): string {
   return resolve(root, path);
+}
+
+function cachedModel(
+  key: string,
+  options: LoadModelOptions,
+): Promise<string> {
+  const existing = loadedModels.get(key);
+  if (existing) return existing;
+  const pending = loadModel(options).catch((error) => {
+    loadedModels.delete(key);
+    throw error;
+  });
+  loadedModels.set(key, pending);
+  return pending;
+}
+
+async function clinicalModel(): Promise<string> {
+  const spec = config.models.clinical_extraction;
+  if (!spec.path) throw new Error("clinical extraction model path is missing");
+  if (!spec.lora_path) throw new Error("PULSO LoRA adapter path is missing");
+  const adapterPath = localPath(spec.lora_path);
+  if (!existsSync(adapterPath))
+    throw new Error("PULSO LoRA adapter is missing; run npm run train first");
+  return cachedModel("clinical", {
+    modelSrc: localPath(spec.path),
+    modelType: "llamacpp-completion",
+    modelConfig: {
+      ctx_size: 4096,
+      gpu_layers: 22,
+      lora: adapterPath,
+    } as never,
+  });
+}
+
+async function transcriptionModel(): Promise<string> {
+  const spec = config.models.transcription;
+  if (!spec.path || !spec.vad_path)
+    throw new Error("transcription paths are missing");
+  return cachedModel("transcription", {
+    modelSrc: localPath(spec.path),
+    modelType: "whispercpp-transcription",
+    modelConfig: { language: "auto", vadModelSrc: localPath(spec.vad_path) },
+  });
+}
+
+async function diarizationModel(): Promise<string> {
+  const spec = config.models.speaker_diarization;
+  if (!spec.path) throw new Error("diarization model path is missing");
+  return cachedModel("diarization", {
+    modelSrc: localPath(spec.path),
+    modelType: "parakeet-transcription",
+  });
+}
+
+async function embeddingModel(): Promise<string> {
+  const spec = config.models.rag_embeddings;
+  if (!spec.path) throw new Error("embedding model path is missing");
+  return cachedModel("rag", {
+    modelSrc: localPath(spec.path),
+    modelType: "llamacpp-embedding",
+  });
+}
+
+async function translationModel(from: string, to: string): Promise<string> {
+  const direction = from === "en" ? "en-xx" : "xx-en";
+  const files = translationFiles(direction);
+  return cachedModel(`translation:${direction}`, {
+    modelSrc: files.model,
+    modelType: "nmtcpp-translation",
+    modelConfig: {
+      engine: "Bergamot",
+      from,
+      to,
+      srcVocabSrc: files.vocab,
+      dstVocabSrc: files.vocab,
+    } as never,
+  });
+}
+
+async function speechModel(language = "es"): Promise<string> {
+  const spec = config.models.speech;
+  if (!spec.path) throw new Error("speech model path is missing");
+  return cachedModel(`speech:${language}`, {
+    modelSrc: localPath(spec.path),
+    modelType: "tts-ggml",
+    modelConfig: {
+      ...spec.model_config,
+      language,
+      voice: "F1",
+      ttsSpeed: 1.08,
+      ttsNumInferenceSteps: 5,
+    },
+  });
+}
+
+export async function preloadCoreModels(): Promise<{ loaded: string[] }> {
+  const preload = async (
+    name: string,
+    quantization: string,
+    loader: () => Promise<string>,
+  ) => {
+    const record = metric(name, quantization, "model-preload", "application-startup");
+    const started = performance.now();
+    try {
+      await loader();
+      record.model_load_ms = performance.now() - started;
+      record.total_inference_ms = record.model_load_ms;
+      record.success = true;
+    } catch (error) {
+      record.error = errorMessage(error);
+      throw error;
+    } finally {
+      await writeMetric(record);
+    }
+  };
+  await preload("MedPsy-1.7B", "Q8_0", clinicalModel);
+  await preload("Whisper Small", "Q8_0", transcriptionModel);
+  await preload("Sortformer 4SPK", "Q4_0", diarizationModel);
+  await preload("EmbeddingGemma 300M", "Q4_0", embeddingModel);
+  await preload("TranslatePsy EuroNano xx-en", "INTGEMM", () =>
+    translationModel("es", "en"),
+  );
+  await preload("TranslatePsy EuroNano en-xx", "INTGEMM", () =>
+    translationModel("en", "es"),
+  );
+  const speechLanguages = ["es", "en", ...(config.models.translation.euro_languages ?? [])]
+    .filter((language, index, languages) => languages.indexOf(language) === index);
+  for (const language of speechLanguages) {
+    await preload(`Supertonic 3 ${language}`, "Q4_0", () => speechModel(language));
+  }
+  return {
+    loaded: [
+      "MedPsy",
+      "Whisper",
+      "Sortformer",
+      "EmbeddingGemma",
+      "TranslatePsy xx-en",
+      "TranslatePsy en-xx",
+      "Supertonic",
+    ],
+  };
 }
 
 function metric(
@@ -102,13 +251,10 @@ export async function extractClinicalEvents(input: {
     language: string;
     text: string;
   }>;
+  reference_context?: Array<{ content?: string; text?: string; metadata?: unknown }>;
 }): Promise<ExtractionResult> {
   const spec = config.models.clinical_extraction;
   if (!spec.path) throw new Error("clinical extraction model path is missing");
-  if (!spec.lora_path) throw new Error("PULSO LoRA adapter path is missing");
-  const adapterPath = localPath(spec.lora_path);
-  if (!existsSync(adapterPath))
-    throw new Error("PULSO LoRA adapter is missing; run npm run train first");
   const prompt = JSON.stringify(input);
   const record = metric(
     spec.path,
@@ -117,17 +263,8 @@ export async function extractClinicalEvents(input: {
     prompt,
   );
   const loadStarted = performance.now();
-  let modelId: string | undefined;
   try {
-    modelId = await loadModel({
-      modelSrc: localPath(spec.path),
-      modelType: "llamacpp-completion",
-      modelConfig: {
-        ctx_size: 4096,
-        gpu_layers: 22,
-        lora: adapterPath,
-      } as never,
-    });
+    const modelId = await clinicalModel();
     record.model_load_ms = performance.now() - loadStarted;
     const started = performance.now();
     const run = completion({
@@ -141,7 +278,7 @@ export async function extractClinicalEvents(input: {
       generationParams: {
         temp: 0,
         top_p: 0.9,
-        predict: 1200,
+        predict: 700,
         seed: 42,
         reasoning_budget: 0,
         remove_thinking_from_context: true,
@@ -174,7 +311,6 @@ export async function extractClinicalEvents(input: {
     throw error;
   } finally {
     await writeMetric(record);
-    if (modelId) await unloadModel({ modelId });
   }
 }
 
@@ -183,14 +319,9 @@ export async function transcribeAudio(audioPath: string): Promise<unknown> {
   if (!spec.path || !spec.vad_path)
     throw new Error("transcription paths are missing");
   const record = metric(spec.path, "Q8_0", "transcription", audioPath);
-  let modelId: string | undefined;
   const loadStarted = performance.now();
   try {
-    modelId = await loadModel({
-      modelSrc: localPath(spec.path),
-      modelType: "whispercpp-transcription",
-      modelConfig: { language: "auto", vadModelSrc: localPath(spec.vad_path) },
-    });
+    const modelId = await transcriptionModel();
     record.model_load_ms = performance.now() - loadStarted;
     const started = performance.now();
     const segments = await transcribe({
@@ -212,23 +343,14 @@ export async function transcribeAudio(audioPath: string): Promise<unknown> {
     throw error;
   } finally {
     await writeMetric(record);
-    if (modelId) await unloadModel({ modelId });
   }
 }
 
 export async function diarizeAudio(audioPath: string): Promise<string> {
   const spec = config.models.speaker_diarization;
   if (!spec.path) throw new Error("diarization model path is missing");
-  let modelId: string | undefined;
-  try {
-    modelId = await loadModel({
-      modelSrc: localPath(spec.path),
-      modelType: "parakeet-transcription",
-    });
-    return await transcribe({ modelId, audioChunk: resolve(audioPath) });
-  } finally {
-    if (modelId) await unloadModel({ modelId });
-  }
+  const modelId = await diarizationModel();
+  return await transcribe({ modelId, audioChunk: resolve(audioPath) });
 }
 
 function seconds(value: string): number {
@@ -307,30 +429,14 @@ async function translateStep(
   from: string,
   to: string,
 ): Promise<string> {
-  const files = translationFiles(from === "en" ? "en-xx" : "xx-en");
   const taggedText = tagTranslationInput(text, from, to);
-  let modelId: string | undefined;
-  try {
-    modelId = await loadModel({
-      modelSrc: files.model,
-      modelType: "nmtcpp-translation",
-      modelConfig: {
-        engine: "Bergamot",
-        from,
-        to,
-        srcVocabSrc: files.vocab,
-        dstVocabSrc: files.vocab,
-      } as never,
-    });
-    return await translate({
-      modelId,
-      text: taggedText,
-      modelType: "nmtcpp-translation",
-      stream: false,
-    }).text.then((result) => result.trim());
-  } finally {
-    if (modelId) await unloadModel({ modelId });
-  }
+  const modelId = await translationModel(from, to);
+  return await translate({
+    modelId,
+    text: taggedText,
+    modelType: "nmtcpp-translation",
+    stream: false,
+  }).text.then((result) => result.trim());
 }
 
 export function tagTranslationInput(
@@ -454,16 +560,8 @@ export async function searchRag(
 ): Promise<unknown> {
   const spec = config.models.rag_embeddings;
   if (!spec.path) throw new Error("embedding model path is missing");
-  let modelId: string | undefined;
-  try {
-    modelId = await loadModel({
-      modelSrc: localPath(spec.path),
-      modelType: "llamacpp-embedding",
-    });
-    return await ragSearch({ modelId, workspace, query, topK });
-  } finally {
-    if (modelId) await unloadModel({ modelId });
-  }
+  const modelId = await embeddingModel();
+  return await ragSearch({ modelId, workspace, query, topK });
 }
 
 export async function listRagWorkspaces(): Promise<unknown> {
@@ -505,41 +603,29 @@ export async function synthesize(
   outputPath: string,
   language = "es",
 ): Promise<void> {
-  const spec = config.models.speech;
-  if (!spec.path) throw new Error("speech model path is missing");
-  let modelId: string | undefined;
-  try {
-    modelId = await loadModel({
-      modelSrc: localPath(spec.path),
-      modelType: "tts-ggml",
-      modelConfig: {
-        ...spec.model_config,
-        language,
-        voice: "F1",
-        ttsSpeed: 1.08,
-        ttsNumInferenceSteps: 5,
-      },
-    });
-    const samples = await textToSpeech({
-      modelId,
-      text,
-      inputType: "text",
-      stream: false,
-    }).buffer;
-    const pcm = Buffer.alloc(samples.length * 2);
-    samples.forEach((sample, index) =>
-      pcm.writeInt16LE(Math.max(-32768, Math.min(32767, sample)), index * 2),
-    );
-    await writeFile(
-      resolve(outputPath),
-      Buffer.concat([wavHeader(pcm.length, 44100), pcm]),
-    );
-  } finally {
-    if (modelId) await unloadModel({ modelId });
-  }
+  const modelId = await speechModel(language);
+  const samples = await textToSpeech({
+    modelId,
+    text,
+    inputType: "text",
+    stream: false,
+  }).buffer;
+  const pcm = Buffer.alloc(samples.length * 2);
+  samples.forEach((sample, index) =>
+    pcm.writeInt16LE(Math.max(-32768, Math.min(32767, sample)), index * 2),
+  );
+  await writeFile(
+    resolve(outputPath),
+    Buffer.concat([wavHeader(pcm.length, 44100), pcm]),
+  );
 }
 
 export async function closeQvac(): Promise<void> {
+  const ids = await Promise.allSettled(loadedModels.values());
+  for (const item of ids) {
+    if (item.status === "fulfilled") await unloadModel({ modelId: item.value });
+  }
+  loadedModels.clear();
   await close();
 }
 

@@ -3,6 +3,7 @@ ruff==0.12.11
 pydantic==2.13.4
 typing-extensions==4.16.0
 PyMuPDF==1.28.2
+python-docx==1.2.0
 openpyxl==3.1.5
 langdetect==1.0.9
 tensorboard==2.21.0

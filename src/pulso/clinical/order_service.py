@@ -10,12 +10,17 @@ from pulso.storage.routing import destination_for
 
 
 def _request_text(event: ClinicalEvent) -> str:
-    return str(
-        event.payload.get("explicit_command")
-        or event.payload.get("request")
-        or event.payload.get("name")
-        or event.type.value
-    )
+    request = event.payload.get("request")
+    if request:
+        return str(request)
+    details = [
+        f"{key.replace('_', ' ')}: {value}"
+        for key, value in event.payload.items()
+        if key != "explicit_command" and value is not None and value != ""
+    ]
+    if details:
+        return ", ".join(details)
+    return str(event.payload.get("explicit_command") or event.type.value)
 
 
 class OrderService:
@@ -27,7 +32,7 @@ class OrderService:
             raise ValueError("only explicit actionable order events can create drafts")
         request = _request_text(event)
         digest = hashlib.sha256(
-            f"{event.encounter_id}:{','.join(sorted(event.evidence_utterance_ids))}:{request}".encode()
+            f"{event.encounter_id}:{event.type.value}:{','.join(sorted(event.evidence_utterance_ids))}:{request}".encode()
         ).hexdigest()
         order = Order(
             encounter_id=event.encounter_id,
