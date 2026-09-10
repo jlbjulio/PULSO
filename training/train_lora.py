@@ -1,5 +1,3 @@
-"""Train PULSO's MedPsy event-extraction adapter and log it locally."""
-
 from __future__ import annotations
 
 import json

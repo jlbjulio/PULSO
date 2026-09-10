@@ -1,4 +1,3 @@
-"""Orchestration for capture, extraction, review, and critical mode."""
 
 from __future__ import annotations
 

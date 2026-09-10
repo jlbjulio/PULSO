@@ -1,4 +1,3 @@
-"""Build a source-labelled local corpus from the declared PULSO references."""
 
 from __future__ import annotations
 

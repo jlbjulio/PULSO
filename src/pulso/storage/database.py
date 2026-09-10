@@ -1,4 +1,3 @@
-"""SQLite persistence for an offline-first emergency workflow."""
 
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-"""Small Python boundary around the local TypeScript QVAC runtime."""
 
 from __future__ import annotations
 

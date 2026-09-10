@@ -1,4 +1,3 @@
-"""Tamper-evident local audit chain."""
 
 from __future__ import annotations
 

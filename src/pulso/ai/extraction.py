@@ -1,4 +1,3 @@
-"""MedPsy structured extraction through @qvac/sdk."""
 
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-"""Evidence-grounded clinical documentation assembled without new inference."""
 
 from __future__ import annotations
 

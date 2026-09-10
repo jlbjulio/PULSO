@@ -1,4 +1,3 @@
-"""Local QVAC RAG indexing and evidence retrieval."""
 
 from __future__ import annotations
 

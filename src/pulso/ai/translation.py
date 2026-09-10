@@ -1,4 +1,3 @@
-"""TranslatePsy local translation preserving the original evidence."""
 
 from __future__ import annotations
 

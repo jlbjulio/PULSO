@@ -1,4 +1,3 @@
-"""Deterministic FHIR R4 export of reviewed local evidence and orders."""
 
 from __future__ import annotations
 
@@ -128,7 +127,6 @@ def export_bundle(
     events: list[ClinicalEvent],
     orders: list[Order],
 ) -> dict[str, Any]:
-    """Build a local FHIR Bundle without inventing terminology or clinical fields."""
     patient_id = _fhir_id(encounter.patient_ref)
     practitioner_id = _fhir_id(encounter.clinician_id)
     resources: list[dict[str, Any]] = [

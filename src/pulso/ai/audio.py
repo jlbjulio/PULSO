@@ -1,4 +1,3 @@
-"""Local transcription and speaker diarization."""
 
 from __future__ import annotations
 

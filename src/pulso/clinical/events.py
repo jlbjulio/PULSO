@@ -1,4 +1,3 @@
-"""Clinical facts extracted from evidence without autonomous decisions."""
 
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-"""OCR with block-level evidence coordinates."""
 
 from __future__ import annotations
 

@@ -1,4 +1,3 @@
-"""Use local QVAC OCR for declared PDF pages that have no embedded text."""
 
 from __future__ import annotations
 

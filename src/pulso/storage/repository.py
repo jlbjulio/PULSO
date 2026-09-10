@@ -1,4 +1,3 @@
-"""Atomic repository for encounters, evidence, events, orders, and outbox messages."""
 
 from __future__ import annotations
 

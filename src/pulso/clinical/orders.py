@@ -1,4 +1,3 @@
-"""Closed-loop orders, routing, acknowledgement, and replacement rules."""
 
 from __future__ import annotations
 

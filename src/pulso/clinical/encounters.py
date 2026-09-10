@@ -1,4 +1,3 @@
-"""Emergency encounter identity and lifecycle."""
 
 from __future__ import annotations
 

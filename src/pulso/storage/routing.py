@@ -1,4 +1,3 @@
-"""Deterministic destination routing for confirmed clinical requests."""
 
 from __future__ import annotations
 

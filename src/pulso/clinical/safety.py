@@ -1,4 +1,3 @@
-"""Deterministic safety gates around model output."""
 
 from __future__ import annotations
 
@@ -11,8 +10,6 @@ AUTHORIZED_ORDER_ROLES = {ActorRole.PHYSICIAN, ActorRole.NURSE, ActorRole.PARAME
 
 
 def explicit_command(text: str) -> str | None:
-    """Return the command only when the utterance starts with the wake word."""
-
     match = WAKE_WORD.match(text)
     if not match:
         return None
@@ -21,8 +18,6 @@ def explicit_command(text: str) -> str | None:
 
 
 def gate_event(event: ClinicalEvent, evidence_texts: list[str]) -> ClinicalEvent:
-    """Make unsupported model actions non-actionable before persistence."""
-
     if event.type not in ORDER_TYPES:
         return event
     command = next(

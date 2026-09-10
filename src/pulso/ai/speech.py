@@ -1,4 +1,3 @@
-"""Local spoken readback for translations and order confirmation."""
 
 from __future__ import annotations
 

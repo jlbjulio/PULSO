@@ -1,4 +1,3 @@
-"""Closed-loop order creation and confirmation."""
 
 from __future__ import annotations
 

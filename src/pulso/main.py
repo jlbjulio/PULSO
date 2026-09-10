@@ -1,4 +1,3 @@
-"""PULSO command-line entry point for reproducible backend workflows."""
 
 from __future__ import annotations
 
