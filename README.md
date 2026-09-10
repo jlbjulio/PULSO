@@ -79,7 +79,7 @@ npm run check
 
 ## Entrenamiento local
 
-El conjunto SFT contiene 30 casos de entrenamiento, 10 de validación y 69 de prueba, todos sintéticos. Incluye negativos difíciles para reducir eventos falsos y distinguir la palabra clínica “pulso” del comando de activación. El ajuste LoRA especializa la extracción de hechos, negaciones, correcciones, estados e intención explícita; no entrena recomendaciones clínicas.
+El conjunto SFT contiene 42 casos de entrenamiento, 10 de validación y 69 de prueba, todos sintéticos. Incluye negativos difíciles para reducir eventos falsos y distinguir la palabra clínica “pulso” del comando de activación. El ajuste LoRA especializa la extracción de hechos, negaciones, correcciones, estados e intención explícita; no entrena recomendaciones clínicas.
 
 ```console
 npm run train

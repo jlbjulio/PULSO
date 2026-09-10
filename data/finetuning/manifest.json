@@ -6,7 +6,7 @@
   "task": "clinical_event_extraction_and_state_classification",
   "output_schema": "../../schemas/clinical-events.schema.json",
   "splits": {
-    "train": 30,
+    "train": 42,
     "validation": 10,
     "test": 69
   },
