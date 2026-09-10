@@ -35,7 +35,7 @@ TRAINING_CONFIG = {
     "lrMin": 1e-8,
     "warmupRatio": 0.05,
     "warmupRatioSet": True,
-    "contextLength": 1024,
+    "contextLength": 1536,
     "batchSize": 256,
     "microBatchSize": 64,
     "assistantLossOnly": True,
@@ -83,7 +83,7 @@ def train() -> None:
         "trainPath": str(TRAIN),
         "validationPath": str(VALIDATION),
         "adapterPath": str(candidate_adapter),
-        "modelConfig": {"device": "gpu", "ctx_size": 1024, "gpu_layers": 20},
+        "modelConfig": {"device": "gpu", "ctx_size": 1536, "gpu_layers": 20},
         "options": {**TRAINING_CONFIG, **LORA_CONFIG},
     }
     REQUEST.write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
