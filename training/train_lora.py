@@ -29,7 +29,7 @@ LORA_CONFIG = {
     "loraModules": "attn_q,attn_k,attn_v,attn_o",
 }
 TRAINING_CONFIG = {
-    "numberOfEpochs": 3,
+    "numberOfEpochs": 1,
     "learningRate": 0.00005,
     "lrScheduler": "cosine",
     "lrMin": 1e-8,
