@@ -459,7 +459,7 @@ function App() {
       session.timer = window.setInterval(() => {
         const now = Date.now();
         const duration = now - session.startedAt;
-        const endedPhrase = session.lastVoiceAt > 0 && now - session.lastVoiceAt > 900;
+        const endedPhrase = session.lastVoiceAt > 0 && now - session.lastVoiceAt > 1600;
         if ((endedPhrase && duration > 1500) || duration > 12000) void flushAudio(session);
       }, 400);
     }

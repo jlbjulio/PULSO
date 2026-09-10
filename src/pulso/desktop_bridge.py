@@ -60,7 +60,6 @@ def reset_demo(database: SQLiteDatabase) -> dict[str, bool]:
     tables = [
         "order_transitions",
         "rag_checks",
-        "evidence_documents",
         "clinical_documents",
         "sync_outbox",
         "audit_events",

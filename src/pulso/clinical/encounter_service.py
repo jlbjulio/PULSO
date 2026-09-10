@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 
 from langdetect import LangDetectException, detect_langs
@@ -11,7 +12,15 @@ from pulso.ai.rag import RetrievalService
 from pulso.ai.runtime import QvacRuntimeError
 from pulso.ai.translation import TranslationService
 from pulso.clinical.encounters import Encounter, EncounterState
-from pulso.clinical.events import ActorRole, ClinicalEvent, ExtractionResult, Utterance
+from pulso.clinical.events import (
+    ORDER_TYPES,
+    ActorRole,
+    ClinicalEvent,
+    EventState,
+    EventType,
+    ExtractionResult,
+    Utterance,
+)
 from pulso.clinical.safety import explicit_command, gate_event
 from pulso.storage.repository import EncounterRepository
 
@@ -27,6 +36,118 @@ PATIENT_LANGUAGE = re.compile(
     re.IGNORECASE,
 )
 CRITICAL_COMMAND = re.compile(r"\b(c[oó]digo azul|modo cr[ií]tico)\b", re.IGNORECASE)
+ASR_WAKE_WORD = re.compile(
+    r"\b(?:puls[oó]|pulse\s+o|ulso)\b(?=\s*[,;:]?\s*"
+    r"(?:activar|solicitar|administrar|trasladar|iniciar|llamar|cancelar))",
+    re.IGNORECASE,
+)
+WAKE_WORD_AT_END = re.compile(r"\b(?:puls[oó]|pulse\s+o|ulso)\s*[,;:]?\s*$", re.I)
+COMMAND_START = re.compile(
+    r"^\s*(?:activar|solicitar|administrar|trasladar|iniciar|llamar|cancelar)\b",
+    re.I,
+)
+PENDING_WAKE_WORDS: dict[str, tuple[ActorRole, float]] = {}
+
+
+def normalize_clinical_speech(text: str) -> str:
+    normalized = ASR_WAKE_WORD.sub("Pulso", text)
+    normalized = WAKE_WORD_AT_END.sub("Pulso", normalized)
+    normalized = re.sub(r"\bequipo de tramo\b", "equipo de trauma", normalized, flags=re.I)
+    normalized = re.sub(r"\bpor\s+t[aá]til\b", "portátil", normalized, flags=re.I)
+    normalized = re.sub(r"\b(?:t[oó]rex|torax)\b", "tórax", normalized, flags=re.I)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def command_context(encounter_id: str, utterances: list[Utterance]) -> list[Utterance]:
+    pending = PENDING_WAKE_WORDS.pop(encounter_id, None)
+    contextual = utterances
+    if pending and utterances:
+        role, expires_at = pending
+        first = utterances[0]
+        if (
+            time.monotonic() <= expires_at
+            and first.speaker == role
+            and COMMAND_START.search(first.original_text)
+        ):
+            contextual = [
+                first.model_copy(update={"original_text": f"Pulso, {first.original_text}"}),
+                *utterances[1:],
+            ]
+    if utterances and WAKE_WORD_AT_END.search(utterances[-1].original_text):
+        PENDING_WAKE_WORDS[encounter_id] = (
+            utterances[-1].speaker,
+            time.monotonic() + 90,
+        )
+    return contextual
+
+
+def _order_type(clause: str) -> EventType | None:
+    text = clause.casefold()
+    imaging_terms = ("radiograf", "tomograf", "rayos x", "ecograf", "resonancia")
+    if any(word in text for word in imaging_terms):
+        return EventType.IMAGING_ORDER
+    laboratory_terms = ("laboratorio", "hemograma", "gasometr", "cultivo")
+    if any(word in text for word in laboratory_terms):
+        return EventType.LAB_ORDER
+    if any(word in text for word in ("código azul", "codigo azul", "reanimación")):
+        return EventType.CODE_EVENT
+    if any(
+        word in text
+        for word in (
+            "equipo",
+            "psicolog",
+            "psiquiatr",
+            "cardiolog",
+            "neurolog",
+            "ciruj",
+            "trabajo social",
+            "terapeuta",
+        )
+    ):
+        return EventType.CONSULT_ORDER
+    if any(word in text for word in ("traslad", "transfer")):
+        return EventType.TRANSFER
+    if any(word in text for word in ("administrar", "medicamento", " mg", " ml")):
+        return EventType.MEDICATION_ORDER
+    if any(word in text for word in ("procedimiento", "intubar", "canalizar")):
+        return EventType.PROCEDURE_ORDER
+    return None
+
+
+def explicit_order_events(
+    encounter: Encounter,
+    utterances: list[Utterance],
+) -> list[ClinicalEvent]:
+    events: list[ClinicalEvent] = []
+    authorized = {ActorRole.PHYSICIAN, ActorRole.NURSE, ActorRole.PARAMEDIC}
+    for utterance in utterances:
+        command = explicit_command(utterance.original_text)
+        if not command or utterance.speaker not in authorized:
+            continue
+        clauses = re.split(
+            r"\s+y\s+(?=(?:activar|solicitar|administrar|trasladar|iniciar|llamar)\b)|[.;]",
+            command,
+            flags=re.I,
+        )
+        for clause in (part.strip(" ,") for part in clauses):
+            event_type = _order_type(clause)
+            if event_type is None:
+                continue
+            events.append(
+                ClinicalEvent(
+                    encounter_id=encounter.id,
+                    type=event_type,
+                    state=EventState.PENDING_CONFIRMATION,
+                    actor_role=utterance.speaker,
+                    patient_ref=encounter.patient_ref,
+                    evidence_utterance_ids=[utterance.id],
+                    payload={"request": clause},
+                    actionable=True,
+                    confirmation_required=True,
+                    confidence=1.0,
+                )
+            )
+    return events
 
 
 def detect_language(text: str, fallback: str = "es") -> str:
@@ -77,7 +198,14 @@ class EncounterService:
         if source_language != "es":
             return self.translation.to_spanish(text, source_language)
         if patient_language != "es":
-            return self.translation.translate(text, "es", patient_language)
+            patient_facing_text = re.split(r"\bpulso\b", text, maxsplit=1, flags=re.I)[0]
+            patient_facing_text = patient_facing_text.strip(" .,;:")
+            if patient_facing_text:
+                return self.translation.translate(
+                    patient_facing_text,
+                    "es",
+                    patient_language,
+                )
         return None
 
     @staticmethod
@@ -178,6 +306,7 @@ class EncounterService:
             )
             for event in result.events
         ]
+        gated = [event for event in gated if event.type not in ORDER_TYPES or event.actionable]
         for event in gated:
             self.repository.save_event(event, actor=encounter.clinician_id)
         return gated
@@ -194,6 +323,7 @@ class EncounterService:
         encounter = self.repository.get(encounter_id)
         if encounter.state not in {EncounterState.ACTIVE, EncounterState.CRITICAL}:
             raise ValueError("capture is only available during an active encounter")
+        text = normalize_clinical_speech(text)
         resolved_speaker = infer_role(text) if speaker == ActorRole.UNKNOWN else speaker
         fallback_language = encounter.language if resolved_speaker == ActorRole.PATIENT else "es"
         resolved_language = (
@@ -220,11 +350,16 @@ class EncounterService:
             translated_text=translated,
         )
         self.repository.add_utterance(encounter_id, utterance)
-        query = self._clinical_text(utterance)
+        processing_utterances = command_context(encounter_id, [utterance])
+        query = self._clinical_text(processing_utterances[0])
         references = self._reference_context(encounter_id, query, encounter.clinician_id)
-        result = self._extract(encounter, [utterance], references)
-        events = self._save_events(encounter, result, [utterance])
-        if requests_critical_mode(text):
+        result = self._extract(encounter, processing_utterances, references)
+        commands = explicit_order_events(encounter, processing_utterances)
+        if commands:
+            result.events = [event for event in result.events if event.type not in ORDER_TYPES]
+            result.events.extend(commands)
+        events = self._save_events(encounter, result, processing_utterances)
+        if any(requests_critical_mode(item.original_text) for item in processing_utterances):
             self.critical_mode(encounter_id, actor=encounter.clinician_id)
         return events
 
@@ -247,7 +382,7 @@ class EncounterService:
         detected: list[tuple[dict, str, ActorRole, str]] = []
         patient_language = encounter.language
         for item in detected_items:
-            original = str(item.get("text", "")).strip()
+            original = normalize_clinical_speech(str(item.get("text", "")).strip())
             role = infer_role(original)
             if role == ActorRole.UNKNOWN:
                 role = speaker_roles.get(str(item.get("speaker", "unknown")), ActorRole.UNKNOWN)
@@ -285,11 +420,16 @@ class EncounterService:
             utterances.append(utterance)
         if not utterances:
             raise ValueError("no speech was detected")
-        query = " ".join(self._clinical_text(item) for item in utterances)
+        processing_utterances = command_context(encounter_id, utterances)
+        query = " ".join(self._clinical_text(item) for item in processing_utterances)
         references = self._reference_context(encounter_id, query, encounter.clinician_id)
-        result = self._extract(encounter, utterances, references)
-        events = self._save_events(encounter, result, utterances)
-        if any(requests_critical_mode(item.original_text) for item in utterances):
+        result = self._extract(encounter, processing_utterances, references)
+        commands = explicit_order_events(encounter, processing_utterances)
+        if commands:
+            result.events = [event for event in result.events if event.type not in ORDER_TYPES]
+            result.events.extend(commands)
+        events = self._save_events(encounter, result, processing_utterances)
+        if any(requests_critical_mode(item.original_text) for item in processing_utterances):
             self.critical_mode(encounter_id, actor=encounter.clinician_id)
         return events
 
