@@ -43,7 +43,7 @@ En modo crítico la captura continúa sin interrumpir la atención y la concilia
 
 | Función | Modelo |
 | --- | --- |
-| Extracción clínica | `qvac/MedPsy-1.7B-GGUF`, Q8_0, con adaptador LoRA de PULSO cuando está disponible |
+| Extracción clínica | `qvac/MedPsy-1.7B-GGUF`, Q8_0, con adaptador LoRA obligatorio de PULSO |
 | Traducción | `qvac/TranslatePsy-EuroNano`, INTGEMM |
 | Transcripción | Whisper Small Q8_0 y Silero VAD 5.1.2 |
 | Diarización | Sortformer 4SPK v2.1 Q4_0 |

@@ -105,6 +105,10 @@ export async function extractClinicalEvents(input: {
 }): Promise<ExtractionResult> {
   const spec = config.models.clinical_extraction;
   if (!spec.path) throw new Error("clinical extraction model path is missing");
+  if (!spec.lora_path) throw new Error("PULSO LoRA adapter path is missing");
+  const adapterPath = localPath(spec.lora_path);
+  if (!existsSync(adapterPath))
+    throw new Error("PULSO LoRA adapter is missing; run npm run train first");
   const prompt = JSON.stringify(input);
   const record = metric(
     spec.path,
@@ -115,16 +119,13 @@ export async function extractClinicalEvents(input: {
   const loadStarted = performance.now();
   let modelId: string | undefined;
   try {
-    const adapterPath = spec.lora_path ? localPath(spec.lora_path) : undefined;
-    const lora =
-      adapterPath && existsSync(adapterPath) ? adapterPath : undefined;
     modelId = await loadModel({
       modelSrc: localPath(spec.path),
       modelType: "llamacpp-completion",
       modelConfig: {
         ctx_size: 4096,
         gpu_layers: 22,
-        ...(lora ? { lora } : {}),
+        lora: adapterPath,
       } as never,
     });
     record.model_load_ms = performance.now() - loadStarted;
