@@ -13,7 +13,6 @@
     "rag:download": "python tools/download_rag_sources.py",
     "models:download": "node tools/download-models.js",
     "qvac:health": "tsx src/qvac/cli.ts health",
-    "rag:ocr": "python tools/extract_scanned_sources.py",
     "rag:prepare": "python tools/prepare_rag.py",
     "rag:index": "tsx src/qvac/cli.ts rag-index",
     "rag:reset": "tsx src/qvac/cli.ts rag-reset",

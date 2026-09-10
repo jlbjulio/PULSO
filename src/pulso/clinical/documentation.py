@@ -178,7 +178,13 @@ def _shade(cell, color: str) -> None:
     shading.set(qn("w:fill"), color)
 
 
-def _cell_margins(cell, top: int = 110, start: int = 130, bottom: int = 110, end: int = 130) -> None:
+def _cell_margins(
+    cell,
+    top: int = 110,
+    start: int = 130,
+    bottom: int = 110,
+    end: int = 130,
+) -> None:
     properties = cell._tc.get_or_add_tcPr()
     margins = properties.first_child_found_in("w:tcMar")
     if margins is None:
@@ -319,7 +325,8 @@ def export_word_report(
     title_run.font.size = Pt(22)
     title_run.font.color.rgb = RGBColor.from_string(COLORS["navy"])
     subtitle = report.add_paragraph(
-        f"Atención {encounter.id}  ·  Cerrada {datetime.now().astimezone().strftime('%d/%m/%Y %H:%M')}"
+        f"Atención {encounter.id}  ·  Cerrada "
+        f"{datetime.now().astimezone().strftime('%d/%m/%Y %H:%M')}"
     )
     subtitle.paragraph_format.space_after = Pt(10)
     subtitle.runs[0].font.size = Pt(8)
@@ -453,7 +460,8 @@ def export_word_report(
     notice.paragraph_format.space_before = Pt(9)
     notice.alignment = WD_ALIGN_PARAGRAPH.CENTER
     notice_run = notice.add_run(
-        "Documento de apoyo operativo. Requiere validación clínica y no sustituye el expediente oficial."
+        "Documento de apoyo operativo. Requiere validación clínica "
+        "y no sustituye el expediente oficial."
     )
     notice_run.italic = True
     notice_run.font.size = Pt(7.5)

@@ -86,7 +86,6 @@ def main() -> None:
     run(npm, "run", "rag:download")
     validate_models()
     validate_rag_sources()
-    run(npm, "run", "rag:ocr")
     run(npm, "run", "rag:prepare")
     run(sys.executable, "-m", "pulso.main", "init")
     run(npm, "run", "rag:reset")

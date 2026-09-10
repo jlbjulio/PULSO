@@ -11,8 +11,6 @@ import {
   listRagWorkspaces,
   parseDiarization,
   preloadCoreModels,
-  readDocument,
-  readDocuments,
   searchRag,
   resetPulsoRag,
   synthesize,
@@ -34,7 +32,6 @@ async function execute(command: string, options: Record<string, unknown>): Promi
       "training/output/pulso-medpsy-lora.gguf",
       "models/speech/whisper-small-q8_0.bin",
       "models/speech/sortformer-4spk-v2.1-q4_0.gguf",
-      "models/ocr/latin-g2.gguf",
       "models/embeddings/embeddinggemma-300m-q4_0.gguf",
       "models/speech/supertonic3-q4_0.gguf",
     ];
@@ -57,8 +54,6 @@ async function execute(command: string, options: Record<string, unknown>): Promi
       target,
     };
   }
-  if (command === "ocr") return readDocument(String(value("image")));
-  if (command === "ocr-batch") return readDocuments(value("images_json") as string[]);
   if (command === "rag-index") return indexRag(String(value("corpus", "data/rag/index/corpus.jsonl")));
   if (command === "rag-workspaces") return { workspaces: await listRagWorkspaces() };
   if (command === "rag-reset") return resetPulsoRag();
@@ -113,7 +108,6 @@ async function run(): Promise<void> {
       "training/output/pulso-medpsy-lora.gguf",
       "models/speech/whisper-small-q8_0.bin",
       "models/speech/sortformer-4spk-v2.1-q4_0.gguf",
-      "models/ocr/latin-g2.gguf",
       "models/embeddings/embeddinggemma-300m-q4_0.gguf",
       "models/speech/supertonic3-q4_0.gguf",
     ];
@@ -144,15 +138,6 @@ async function run(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ translated_text: translatedText, target })}\n`);
     return;
   }
-  if (command === "ocr") {
-    process.stdout.write(`${JSON.stringify(await readDocument(required("--image")))}\n`);
-    return;
-  }
-  if (command === "ocr-batch") {
-    const images = JSON.parse(required("--images-json")) as string[];
-    process.stdout.write(`${JSON.stringify(await readDocuments(images))}\n`);
-    return;
-  }
   if (command === "rag-index") {
     const corpus = option("--corpus") ?? "data/rag/index/corpus.jsonl";
     process.stdout.write(`${JSON.stringify(await indexRag(corpus))}\n`);
@@ -176,7 +161,7 @@ async function run(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ output: resolve(required("--output")) })}\n`);
     return;
   }
-  throw new Error("Use health, extract, transcribe, diarize, audio-pipeline, translate, ocr, ocr-batch, rag-index, rag-search, rag-workspaces, rag-reset, or tts.");
+  throw new Error("Use health, extract, transcribe, diarize, audio-pipeline, translate, rag-index, rag-search, rag-workspaces, rag-reset, or tts.");
 }
 
 if (process.argv[2] === "server") {

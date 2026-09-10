@@ -82,15 +82,6 @@ CREATE TABLE IF NOT EXISTS order_transitions (
     created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS evidence_documents (
-    id TEXT PRIMARY KEY,
-    encounter_id TEXT NOT NULL REFERENCES encounters(id),
-    local_path TEXT NOT NULL,
-    sha256 TEXT NOT NULL,
-    ocr_blocks_json TEXT NOT NULL,
-    created_at TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS rag_checks (
     id TEXT PRIMARY KEY,
     encounter_id TEXT NOT NULL REFERENCES encounters(id),

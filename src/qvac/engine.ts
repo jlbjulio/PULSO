@@ -7,7 +7,6 @@ import {
   close,
   completion,
   loadModel,
-  ocr,
   ragIngest,
   ragListWorkspaces,
   ragCloseWorkspace,
@@ -28,8 +27,6 @@ type ModelSpec = {
   path?: string;
   lora_path?: string;
   vad_path?: string;
-  recognizer_path?: string;
-  detector_path?: string;
   euro?: string;
   quantization?: string;
   qvac_model_type: string;
@@ -461,64 +458,6 @@ export async function translateText(
   const english =
     source === "en" ? text : await translateStep(text, source, "en");
   return target === "en" ? english : translateStep(english, "en", target);
-}
-
-export async function readDocument(imagePath: string): Promise<unknown> {
-  const spec = config.models.ocr;
-  if (!spec.recognizer_path || !spec.detector_path)
-    throw new Error("OCR paths are missing");
-  let modelId: string | undefined;
-  try {
-    modelId = await loadModel({
-      modelSrc: localPath(spec.recognizer_path),
-      modelType: "ggml-ocr",
-      modelConfig: {
-        detectorModelSrc: localPath(spec.detector_path),
-        langList: ["es", "en"],
-        defaultRotationAngles: [90, 180, 270],
-        lowConfidenceThreshold: 0.45,
-      },
-    });
-    const result = ocr({
-      modelId,
-      image: resolve(imagePath),
-      options: { paragraph: false },
-    });
-    return { blocks: await result.blocks, stats: await result.stats };
-  } finally {
-    if (modelId) await unloadModel({ modelId });
-  }
-}
-
-export async function readDocuments(imagePaths: string[]): Promise<unknown> {
-  const spec = config.models.ocr;
-  if (!spec.recognizer_path || !spec.detector_path)
-    throw new Error("OCR paths are missing");
-  let modelId: string | undefined;
-  const documents: Array<{ path: string; blocks: unknown }> = [];
-  try {
-    modelId = await loadModel({
-      modelSrc: localPath(spec.recognizer_path),
-      modelType: "ggml-ocr",
-      modelConfig: {
-        detectorModelSrc: localPath(spec.detector_path),
-        langList: ["es", "en"],
-        defaultRotationAngles: [90, 180, 270],
-        lowConfidenceThreshold: 0.4,
-      },
-    });
-    for (const path of imagePaths) {
-      const result = ocr({
-        modelId,
-        image: resolve(path),
-        options: { paragraph: false },
-      });
-      documents.push({ path, blocks: await result.blocks });
-    }
-    return { documents };
-  } finally {
-    if (modelId) await unloadModel({ modelId });
-  }
 }
 
 export async function indexRag(corpusPath: string): Promise<unknown> {

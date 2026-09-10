@@ -14,7 +14,6 @@ RAG_ROOT = ROOT / "data" / "rag"
 MANIFEST = RAG_ROOT / "manifest.json"
 OUTPUT = RAG_ROOT / "index" / "corpus.jsonl"
 REPORT = RAG_ROOT / "index" / "build-report.json"
-OCR_CACHE = RAG_ROOT / "index" / "ocr-cache.json"
 CHARS_PER_CHUNK = 1200
 OVERLAP_CHARS = 180
 EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
@@ -84,7 +83,6 @@ def chunks(text: str) -> list[str]:
 
 def main() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8-sig"))
-    ocr_cache = json.loads(OCR_CACHE.read_text(encoding="utf-8-sig")) if OCR_CACHE.exists() else {}
     rows: list[dict[str, str]] = []
     skipped: list[dict[str, str]] = []
     source_counts: dict[str, int] = {}
@@ -110,8 +108,6 @@ def main() -> None:
             continue
         count = 0
         for locator, section in sections:
-            if not section:
-                section = ocr_cache.get(f"{source['id']}:{locator}", "")
             for index, chunk in enumerate(chunks(section), 1):
                 chunk_id = f"{source['id']}:{locator}:chunk:{index}"
                 header = (

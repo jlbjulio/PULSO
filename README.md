@@ -34,7 +34,6 @@ La demostración incluye casos sintéticos completos y una captura por micrófon
 | RAG | EmbeddingGemma 300M Q4_0 |
 | Traducción | `qvac/TranslatePsy-EuroNano`, INTGEMM |
 | Voz | Supertonic 3 Q4_0 |
-| Preparación de fuentes escaneadas | OCR Latin G2 y CRAFT |
 
 MedPsy, Whisper, Sortformer, EmbeddingGemma, las dos direcciones de TranslatePsy y los idiomas configurados de Supertonic se cargan una sola vez antes de mostrar la aplicación y permanecen disponibles durante la sesión. Traducción y voz solo ejecutan inferencia cuando el caso lo requiere. Toda la inferencia principal y el RAG se ejecutan localmente mediante QVAC; no se utilizan APIs de inferencia remota.
 
@@ -48,7 +47,7 @@ Requiere Windows 11, Python 3.11 o superior, Node.js 22.17 o superior y aproxima
 python tools/prepare_environment.py
 ```
 
-El comando instala dependencias, descarga los modelos, prepara las fuentes, crea el índice RAG y configura la base local. Para abrir PULSO:
+El comando instala dependencias, descarga los modelos, extrae el texto de las fuentes digitales, crea el índice RAG y configura la base local. Para abrir PULSO:
 
 ```console
 npm run app

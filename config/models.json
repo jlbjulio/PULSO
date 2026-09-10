@@ -29,11 +29,6 @@
       "target_language": "es",
       "euro_languages": ["de", "es", "fr", "it", "pt", "fi", "cs", "nl", "sv"]
     },
-    "ocr": {
-      "recognizer_path": "models/ocr/latin-g2.gguf",
-      "detector_path": "models/ocr/craft-mlt-25k.gguf",
-      "qvac_model_type": "ggml-ocr"
-    },
     "rag_embeddings": {
       "path": "models/embeddings/embeddinggemma-300m-q4_0.gguf",
       "qvac_model_type": "llamacpp-embedding"

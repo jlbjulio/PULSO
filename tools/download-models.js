@@ -10,8 +10,6 @@ import {
   close,
   downloadAsset,
   EMBEDDINGGEMMA_300M_Q4_0,
-  OCR_CRAFT,
-  OCR_LATIN,
   PARAKEET_SORTFORMER_4SPK_V2_1_Q4_0,
   TTS_MULTILINGUAL_SUPERTONIC3_Q4_0,
   VAD_SILERO_5_1_2,
@@ -28,8 +26,6 @@ const registryAssets = [
     PARAKEET_SORTFORMER_4SPK_V2_1_Q4_0,
     "models/speech/sortformer-4spk-v2.1-q4_0.gguf",
   ],
-  [OCR_CRAFT, "models/ocr/craft-mlt-25k.gguf"],
-  [OCR_LATIN, "models/ocr/latin-g2.gguf"],
   [EMBEDDINGGEMMA_300M_Q4_0, "models/embeddings/embeddinggemma-300m-q4_0.gguf"],
   [TTS_MULTILINGUAL_SUPERTONIC3_Q4_0, "models/speech/supertonic3-q4_0.gguf"],
 ];
