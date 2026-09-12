@@ -11,6 +11,7 @@ import {
   ragListWorkspaces,
   ragCloseWorkspace,
   ragDeleteWorkspace,
+  ragReindex,
   ragSearch,
   textToSpeech,
   transcribe,
@@ -48,6 +49,8 @@ const extractionSchema = JSON.parse(
 ) as Record<string, unknown>;
 
 const loadedModels = new Map<string, Promise<string>>();
+const ragCache = new Map<string, unknown>();
+const RAG_CACHE_LIMIT = 128;
 
 if (config.runtime.allow_cloud_inference) {
   throw new Error("PULSO refuses to start when cloud inference is enabled.");
@@ -64,7 +67,7 @@ Code Blue and explicit critical-response activations are code_event events.
 Mentioning a medication is not administration. Administration requires an explicit statement that it was given.
 Never diagnose, prescribe, infer a dose, fill a missing field, or create an action from background speech.
 Return at most one event for each distinct fact and never duplicate an event.
-Write every payload value in Spanish, even when the source utterance was spoken in another language.
+Write every payload value in English, even when the source utterance was spoken in another language.
 Never include truncation markers such as [incomplete], [truncated], or unfinished transcript fragments.
 Return only JSON that satisfies the schema.`;
 
@@ -186,29 +189,17 @@ export async function preloadCoreModels(): Promise<{ loaded: string[] }> {
     }
   };
   await preload("MedPsy-1.7B", "Q8_0", clinicalModel);
-  await preload("Whisper Small", "Q8_0", transcriptionModel);
-  await preload("Sortformer 4SPK", "Q4_0", diarizationModel);
-  await preload("EmbeddingGemma 300M", "Q4_0", embeddingModel);
-  await preload("TranslatePsy EuroNano xx-en", "INTGEMM", () =>
-    translationModel("es", "en"),
-  );
-  await preload("TranslatePsy EuroNano en-xx", "INTGEMM", () =>
-    translationModel("en", "es"),
-  );
-  const speechLanguages = ["es", "en", ...(config.models.translation.euro_languages ?? [])]
-    .filter((language, index, languages) => languages.indexOf(language) === index);
-  for (const language of speechLanguages) {
-    await preload(`Supertonic 3 ${language}`, "Q4_0", () => speechModel(language));
-  }
+  await Promise.all([
+    preload("Whisper Small", "Q8_0", transcriptionModel),
+    preload("Sortformer 4SPK", "Q4_0", diarizationModel),
+    preload("EmbeddingGemma 300M", "Q4_0", embeddingModel),
+  ]);
   return {
     loaded: [
       "MedPsy",
       "Whisper",
       "Sortformer",
       "EmbeddingGemma",
-      "TranslatePsy xx-en",
-      "TranslatePsy en-xx",
-      "Supertonic",
     ],
   };
 }
@@ -485,6 +476,7 @@ export async function indexRag(corpusPath: string): Promise<unknown> {
         chunk: false,
       });
       counts[workspace] = result.processed.length;
+      await ragReindex({ workspace });
     }
     return { indexed: counts };
   } finally {
@@ -499,8 +491,16 @@ export async function searchRag(
 ): Promise<unknown> {
   const spec = config.models.rag_embeddings;
   if (!spec.path) throw new Error("embedding model path is missing");
+  const cacheKey = `${workspace}:${topK}:${query.trim().toLocaleLowerCase()}`;
+  const cached = ragCache.get(cacheKey);
+  if (cached) return cached;
   const modelId = await embeddingModel();
-  return await ragSearch({ modelId, workspace, query, topK });
+  const results = await ragSearch({ modelId, workspace, query, topK, n: 3 });
+  if (ragCache.size >= RAG_CACHE_LIMIT) {
+    ragCache.delete(ragCache.keys().next().value as string);
+  }
+  ragCache.set(cacheKey, results);
+  return results;
 }
 
 export async function listRagWorkspaces(): Promise<unknown> {
@@ -508,6 +508,7 @@ export async function listRagWorkspaces(): Promise<unknown> {
 }
 
 export async function resetPulsoRag(): Promise<unknown> {
+  ragCache.clear();
   const existing = await ragListWorkspaces();
   const names = existing
     .map((item) => item.name)

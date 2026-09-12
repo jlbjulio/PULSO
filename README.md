@@ -1,89 +1,92 @@
 # PULSO
 
-PULSO es un copiloto de operaciones clínicas para salas de urgencias. Escucha la atención, conserva únicamente los hechos relevantes, traduce cuando existe una barrera de idioma y coordina órdenes clínicas mediante comandos de voz, revisión y firma profesional.
+PULSO is a local clinical operations copilot for emergency departments. It follows the encounter in real time, preserves clinically relevant facts, bridges language barriers, and coordinates voice-initiated orders through professional review and closed-loop confirmation.
 
-## Funcionamiento
+## How it works
 
-1. El profesional abre una atención por cubículo. El paciente recibe una referencia provisional que puede actualizarse cuando sea identificado.
-2. En operación normal, el micrófono permanece activo. Whisper transcribe por fragmentos y Sortformer separa las intervenciones. La conversación completa permanece visible durante la atención, separada del registro clínico relevante.
-3. Cuando detecta otro idioma, PULSO lo conserva como idioma del paciente. TranslatePsy traduce al español lo dicho por el paciente y traduce hacia su idioma las respuestas del profesional. Supertonic reproduce estas traducciones dentro de la misma conversación.
-4. Cuando detecta una orden, medicamento, activación crítica o traslado, el RAG recupera contexto local de emergencia, seguridad e interoperabilidad. MedPsy utiliza ese contexto para normalizar términos y validar la estructura, sin convertir una fuente externa en un hecho del paciente.
-5. MedPsy con el adaptador LoRA de PULSO extrae síntomas, antecedentes, signos vitales, hallazgos, diagnósticos documentados, intervenciones, resultados y órdenes.
-6. Solo una instrucción explícita iniciada con `Pulso` crea una orden. El profesional debe revisar y firmar antes de enviarla al equipo, especialista o servicio correspondiente.
-7. Al finalizar, PULSO genera un informe clínico de Word únicamente con los hechos relevantes, la identificación, los hallazgos, las órdenes, la cronología clínica y la firma, además de un paquete FHIR R4. Después puede iniciarse una nueva atención.
+1. A clinician starts an encounter for a treatment bay. PULSO assigns a temporary patient reference that can be updated after identification.
+2. Whisper transcribes short audio windows while Sortformer separates speakers. The full conversation remains visible during the encounter, independently from the clinical event record.
+3. If the patient speaks another supported language, TranslatePsy translates the patient into Spanish and the clinician into the patient's language. Supertonic can play either translation on demand.
+4. For medication, orders, critical activations, transfers, and workflow events, local RAG retrieves a small amount of relevant emergency, safety, or interoperability context. MedPsy uses it to normalize terminology and validate structure without treating reference material as patient evidence.
+5. MedPsy with PULSO's LoRA adapter extracts symptoms, history, vital signs, findings, documented assessments, interventions, results, and orders.
+6. Only an explicit instruction beginning with the `Pulso` wake word can create an order. Every order must be reviewed and signed by a clinician before dispatch.
+7. Closing the encounter produces a formatted Word report containing relevant clinical facts, orders, timeline, identity, and signature, plus a FHIR R4 bundle.
 
-La demostración incluye casos sintéticos completos y una captura por micrófono bajo demanda. La operación normal utiliza escucha continua.
+The desktop app includes synthetic walkthroughs and an on-demand microphone demo. Normal operation uses continuous listening.
 
-## Componentes
+## Architecture
 
-- `src/app/`: aplicación de escritorio Electron y React.
-- `src/pulso/clinical/`: atenciones, eventos, seguridad, órdenes e informes.
-- `src/pulso/storage/`: SQLite, auditoría, destinos y cola local.
-- `src/pulso/ai/`: audio, traducción, RAG y extracción clínica.
-- `src/qvac/`: inferencia local mediante `@qvac/sdk`.
-- `training/`: entrenamiento y evaluación del adaptador LoRA.
-- `data/`: corpus RAG, evaluación y datos sintéticos de fine-tuning.
+- `src/app/`: Electron and React desktop application.
+- `src/pulso/clinical/`: encounters, events, safety gates, orders, and reports.
+- `src/pulso/storage/`: SQLite persistence, audit chain, routing, and local queue.
+- `src/pulso/ai/`: audio, translation, retrieval, and clinical extraction services.
+- `src/qvac/`: local inference through `@qvac/sdk`.
+- `training/`: LoRA training and evaluation.
+- `data/`: RAG corpus, evaluation fixtures, and synthetic fine-tuning data.
 
-## Modelos
+## Models
 
-| Función | Modelo |
+| Task | Model |
 | --- | --- |
-| Extracción clínica | `qvac/MedPsy-1.7B-GGUF`, Q8_0, con LoRA de PULSO |
-| Transcripción | Whisper Small Q8_0 y Silero VAD 5.1.2 |
-| Diarización | Sortformer 4SPK v2.1 Q4_0 |
-| RAG | EmbeddingGemma 300M Q4_0 |
-| Traducción | `qvac/TranslatePsy-EuroNano`, INTGEMM |
-| Voz | Supertonic 3 Q4_0 |
+| Clinical extraction | `qvac/MedPsy-1.7B-GGUF`, Q8_0, with the PULSO LoRA adapter |
+| Transcription | Whisper Small Q8_0 with Silero VAD 5.1.2 |
+| Speaker diarization | Sortformer 4SPK v2.1 Q4_0 |
+| Retrieval | EmbeddingGemma 300M Q4_0 |
+| Translation | `qvac/TranslatePsy-EuroNano`, INTGEMM |
+| Speech synthesis | Supertonic 3 Q4_0 |
 
-MedPsy, Whisper, Sortformer, EmbeddingGemma, las dos direcciones de TranslatePsy y los idiomas configurados de Supertonic se cargan una sola vez antes de mostrar la aplicación y permanecen disponibles durante la sesión. Traducción y voz solo ejecutan inferencia cuando el caso lo requiere. Toda la inferencia principal y el RAG se ejecutan localmente mediante QVAC; no se utilizan APIs de inferencia remota.
+MedPsy, Whisper, Sortformer, and EmbeddingGemma are warmed once and reused for the process lifetime. Translation and speech models load on first use and remain cached, avoiding startup work for same-language encounters. The RAG corpus is embedded once during setup, reindexed for faster retrieval, queried only for relevant clinical operations, and served from a bounded in-memory query cache when requests repeat.
 
-Cada ejecución registra modelo, cuantización, carga, prompt, tokens, TTFT, latencia y throughput en `runtime-data/performance.jsonl`.
+Inference and retrieval run locally through QVAC. Performance records—including model load time, token counts, TTFT, latency, and throughput—are written to `runtime-data/performance.jsonl`.
 
-## Instalación
+## Installation
 
-Requiere Windows 11, Python 3.11 o superior, Node.js 22.17 o superior y aproximadamente 12 GB libres. El proyecto utiliza la instalación principal de Python, sin entorno virtual. El hardware de referencia es un AMD Ryzen 7 5800H, 15.3 GB de RAM y una NVIDIA RTX 3050 Laptop de 4 GB.
+Requirements:
+
+- Windows 11
+- Python 3.11 or newer
+- Node.js 22.17 or newer
+- Approximately 12 GB of free disk space
+
+PULSO uses the system Python installation and does not require a virtual environment.
 
 ```console
 python tools/prepare_environment.py
 ```
 
-El comando instala dependencias, descarga los modelos, extrae el texto de las fuentes digitales, crea el índice RAG y configura la base local. Para abrir PULSO:
+The setup command installs dependencies, downloads the models and public RAG sources, prepares and indexes the corpus, initializes local storage, and validates the project. Start the desktop application with:
 
 ```console
 npm run app
 ```
 
-La aplicación espera la carga de todos los modelos antes de mostrar la ventana y evita recargarlos entre acciones durante la sesión.
+## Fine-tuning
 
-## Entrenamiento
-
-El conjunto SFT contiene 42 casos de entrenamiento, 10 de validación y 69 de prueba. Todos son sintéticos y están diseñados para distinguir hechos, negaciones, correcciones, acciones realizadas, ideas consideradas y comandos explícitos.
+The synthetic SFT dataset teaches the adapter to distinguish facts, negations, corrections, completed actions, considered options, and explicit commands.
 
 ```console
 npm run train
 npm run train:evaluate
 ```
 
-El entrenamiento se realiza localmente. TensorBoard queda disponible en `http://127.0.0.1:6006` y el adaptador final se guarda en `training/output/pulso-medpsy-lora.gguf`.
+Training runs locally. TensorBoard is available at `http://127.0.0.1:6006`, and the exported adapter is written to `training/output/pulso-medpsy-lora.gguf`.
 
-## Verificación
+## Verification
 
 ```console
 npm run check
 ```
 
-La validación del micrófono y del flujo clínico completo debe realizarse manualmente desde la aplicación con datos sintéticos.
+Microphone behavior and the complete clinical workflow require a manual test in the desktop application using synthetic data.
 
-## Seguridad y limitaciones
+## Safety
 
-PULSO es una herramienta de apoyo operativo y no es un dispositivo médico validado. No diagnostica, prescribe ni ejecuta órdenes de forma autónoma. Una posibilidad discutida no se registra como una acción realizada y una mención de medicamento no equivale a su administración. Toda orden requiere intención explícita, revisión, identidad y firma profesional.
+PULSO is an operational support tool, not a validated medical device. It does not diagnose, prescribe, or execute orders autonomously. A discussed possibility is not recorded as a completed action, and mentioning a medication does not mean it was administered. Orders require explicit intent, clinician review, identity, and signature.
 
-Las salidas inciertas permanecen sujetas a revisión. El sistema no sustituye el criterio clínico, los protocolos hospitalarios, los canales oficiales de emergencia ni los servicios de interpretación profesional.
+Uncertain output remains subject to professional review. PULSO does not replace clinical judgment, hospital protocols, official emergency channels, or professional interpretation services.
 
-## Datos, licencias y base preexistente
+## Data and licenses
 
-El código propio se distribuye bajo MIT. Los modelos, fuentes y componentes de terceros conservan sus licencias originales. `data/rag/manifest.json` registra origen, URL, checksum, atribución y estado de inclusión; `data/rag/sources.csv` enumera el corpus activo.
+Original source code is available under the MIT License. Models, publications, datasets, and third-party components retain their respective licenses. `data/rag/manifest.json` records source URLs, checksums, attribution, licenses, and inclusion status; `data/rag/sources.csv` lists the active corpus.
 
-El corpus activo contiene 45 publicaciones de WHO, 7 definiciones de HL7 FHIR y 2 textos legales oficiales de Panamá. El índice se genera localmente y omite correos y teléfonos detectables durante la extracción.
-
-La base preexistente estaba compuesta por el repositorio inicial, licencia, estructura, configuración de modelos, esquemas, scripts de preparación y descarga, manifiesto de fuentes y conjuntos sintéticos preparados por Julio Lara. Los documentos proceden de WHO, HL7 y fuentes oficiales de Panamá; los pesos locales proceden de QVAC, Tether AI Research y el registro de modelos del SDK.
+The corpus contains public material from the World Health Organization, HL7 FHIR definitions, and official Panamanian legal sources. It is indexed locally, and detectable email addresses and phone numbers are removed during preparation.

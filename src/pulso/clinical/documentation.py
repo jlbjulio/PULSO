@@ -19,56 +19,34 @@ from pulso.storage.audit import append_audit_event
 from pulso.storage.repository import EncounterRepository
 
 FIELD_LABELS = {
-    "name": "nombre",
-    "symptom": "síntoma",
-    "substance": "sustancia",
-    "medication": "medicamento",
-    "dose": "dosis",
-    "unit": "unidad",
-    "route": "vía",
-    "frequency": "frecuencia",
-    "study": "estudio",
-    "body_region": "región",
-    "priority": "prioridad",
-    "indication": "indicación",
-    "team": "equipo",
-    "destination": "destino",
-    "result": "resultado",
-    "request": "solicitud",
+    "name": "name", "symptom": "symptom", "substance": "substance",
+    "medication": "medication", "dose": "dose", "unit": "unit",
+    "route": "route", "frequency": "frequency", "study": "study",
+    "body_region": "region", "priority": "priority", "indication": "indication",
+    "team": "team", "destination": "destination", "result": "result",
+    "request": "request",
 }
 
 EVENT_LABELS = {
-    EventType.PATIENT_REPORT: "Relato relevante",
-    EventType.SYMPTOM: "Síntoma",
-    EventType.ALLERGY: "Alergia",
-    EventType.MEDICATION_HISTORY: "Medicamento habitual",
-    EventType.VITAL_SIGN: "Signo vital",
-    EventType.EXAM_FINDING: "Hallazgo clínico",
-    EventType.CLINICAL_ASSESSMENT: "Evaluación clínica",
-    EventType.DIAGNOSIS: "Diagnóstico documentado",
-    EventType.MEDICATION_ORDER: "Orden farmacológica",
-    EventType.MEDICATION_ADMINISTRATION: "Medicamento administrado",
-    EventType.PROCEDURE_ORDER: "Procedimiento solicitado",
-    EventType.PROCEDURE_PERFORMED: "Procedimiento realizado",
-    EventType.LAB_ORDER: "Laboratorio solicitado",
-    EventType.IMAGING_ORDER: "Estudio de imagen solicitado",
-    EventType.CONSULT_ORDER: "Equipo o especialista solicitado",
-    EventType.RESULT: "Resultado",
-    EventType.CODE_EVENT: "Respuesta crítica",
-    EventType.TRANSFER: "Traslado",
-    EventType.DISPOSITION: "Disposición",
-    EventType.HANDOFF: "Transferencia clínica",
+    EventType.PATIENT_REPORT: "Relevant history", EventType.SYMPTOM: "Symptom",
+    EventType.ALLERGY: "Allergy", EventType.MEDICATION_HISTORY: "Current medication",
+    EventType.VITAL_SIGN: "Vital sign", EventType.EXAM_FINDING: "Clinical finding",
+    EventType.CLINICAL_ASSESSMENT: "Clinical assessment",
+    EventType.DIAGNOSIS: "Documented diagnosis",
+    EventType.MEDICATION_ORDER: "Medication order",
+    EventType.MEDICATION_ADMINISTRATION: "Medication administered",
+    EventType.PROCEDURE_ORDER: "Procedure ordered",
+    EventType.PROCEDURE_PERFORMED: "Procedure performed",
+    EventType.LAB_ORDER: "Laboratory order", EventType.IMAGING_ORDER: "Imaging order",
+    EventType.CONSULT_ORDER: "Team or specialist request", EventType.RESULT: "Result",
+    EventType.CODE_EVENT: "Critical response", EventType.TRANSFER: "Transfer",
+    EventType.DISPOSITION: "Disposition", EventType.HANDOFF: "Clinical handoff",
 }
 
 ORDER_STATE_LABELS = {
-    "awaiting_confirmation": "Pendiente de confirmación",
-    "confirmed": "Confirmada",
-    "dispatched": "Enviada",
-    "accepted": "Recibida",
-    "in_progress": "En ejecución",
-    "completed": "Completada",
-    "cancelled": "Cancelada",
-    "failed": "Sin conexión",
+    "awaiting_confirmation": "Awaiting confirmation", "confirmed": "Confirmed",
+    "dispatched": "Dispatched", "accepted": "Accepted", "in_progress": "In progress",
+    "completed": "Completed", "cancelled": "Cancelled", "failed": "Disconnected",
 }
 
 COLORS = {
@@ -124,9 +102,9 @@ def build_document(encounter_id: str, events: list[ClinicalEvent]) -> ClinicalDo
         elif event.actionable:
             groups["pending_orders"].append(value)
     summary_parts = [
-        f"Síntomas: {'; '.join(groups['symptoms']) or 'sin datos'}.",
-        f"Hallazgos: {'; '.join(groups['findings']) or 'sin datos'}.",
-        f"Evaluación documentada: {'; '.join(groups['assessments']) or 'sin datos'}.",
+        f"Symptoms: {'; '.join(groups['symptoms']) or 'no data'}.",
+        f"Findings: {'; '.join(groups['findings']) or 'no data'}.",
+        f"Documented assessment: {'; '.join(groups['assessments']) or 'no data'}.",
     ]
     return ClinicalDocument(encounter_id=encounter_id, summary=" ".join(summary_parts), **groups)
 
@@ -237,7 +215,7 @@ def _information_card(report: Document, values: list[str]) -> None:
     _shade(cell, COLORS["pale"])
     _cell_margins(cell, 130, 160, 130, 160)
     cell.text = ""
-    for index, value in enumerate(values or ["Sin información documentada."]):
+    for index, value in enumerate(values or ["No information documented."]):
         paragraph = cell.add_paragraph() if index else cell.paragraphs[0]
         paragraph.paragraph_format.space_after = Pt(4 if index < len(values) - 1 else 0)
         bullet = paragraph.add_run("●  ")
@@ -271,7 +249,7 @@ def export_word_report(
     destination = Path(output).resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     report = Document()
-    report.core_properties.title = "Informe de atención de urgencias"
+    report.core_properties.title = "Emergency encounter report"
     report.core_properties.subject = encounter.id
     report.core_properties.author = "PULSO"
     section = report.sections[0]
@@ -303,7 +281,7 @@ def export_word_report(
     )
     _set_cell_text(
         header_table.cell(0, 1),
-        "SERVICIO DE URGENCIAS",
+        "EMERGENCY DEPARTMENT",
         size=8,
         color="A7D9C9",
         bold=True,
@@ -313,19 +291,19 @@ def export_word_report(
     eyebrow = report.add_paragraph()
     eyebrow.paragraph_format.space_before = Pt(7)
     eyebrow.paragraph_format.space_after = Pt(2)
-    eyebrow_run = eyebrow.add_run("REGISTRO CLÍNICO ASISTIDO")
+    eyebrow_run = eyebrow.add_run("ASSISTED CLINICAL RECORD")
     eyebrow_run.bold = True
     eyebrow_run.font.size = Pt(8)
     eyebrow_run.font.color.rgb = RGBColor.from_string(COLORS["green"])
     title = report.add_paragraph()
     title.paragraph_format.space_after = Pt(2)
-    title_run = title.add_run("Informe de atención de urgencias")
+    title_run = title.add_run("Emergency encounter report")
     title_run.bold = True
     title_run.font.name = "Aptos Display"
     title_run.font.size = Pt(22)
     title_run.font.color.rgb = RGBColor.from_string(COLORS["navy"])
     subtitle = report.add_paragraph(
-        f"Atención {encounter.id}  ·  Cerrada "
+        f"Encounter {encounter.id}  ·  Closed "
         f"{datetime.now().astimezone().strftime('%d/%m/%Y %H:%M')}"
     )
     subtitle.paragraph_format.space_after = Pt(10)
@@ -336,10 +314,9 @@ def export_word_report(
     metadata.alignment = WD_TABLE_ALIGNMENT.CENTER
     metadata.autofit = False
     metadata_values = [
-        ("PACIENTE", encounter.patient_ref),
-        ("CUBÍCULO", encounter.bed),
-        ("PROFESIONAL", encounter.clinician_id),
-        ("INICIO", encounter.started_at.astimezone().strftime("%d/%m/%Y %H:%M")),
+        ("PATIENT", encounter.patient_ref), ("TREATMENT BAY", encounter.bed),
+        ("CLINICIAN", encounter.clinician_id),
+        ("STARTED", encounter.started_at.astimezone().strftime("%d/%m/%Y %H:%M")),
     ]
     for index, (label, value) in enumerate(metadata_values):
         label_cell = metadata.cell(0, index)
@@ -349,7 +326,7 @@ def export_word_report(
         _set_cell_text(label_cell, label, size=7, color=COLORS["green"], bold=True)
         _set_cell_text(value_cell, value, size=9, color=COLORS["ink"], bold=True)
 
-    _section_heading(report, "Resumen clínico")
+    _section_heading(report, "Clinical summary")
     summary_table = report.add_table(rows=1, cols=1)
     summary_cell = summary_table.cell(0, 0)
     _shade(summary_cell, COLORS["mint"])
@@ -357,18 +334,16 @@ def export_word_report(
     _set_cell_text(summary_cell, document.summary, size=10, color=COLORS["ink"])
 
     sections = [
-        ("Alergias", document.allergies),
-        ("Síntomas y relato relevante", document.symptoms),
-        ("Signos vitales y hallazgos", document.findings),
-        ("Evaluación y diagnósticos", document.assessments),
-        ("Intervenciones realizadas", document.interventions),
-        ("Resultados", document.results),
+        ("Allergies", document.allergies), ("Symptoms and relevant history", document.symptoms),
+        ("Vital signs and findings", document.findings),
+        ("Assessments and diagnoses", document.assessments),
+        ("Completed interventions", document.interventions), ("Results", document.results),
     ]
     for heading, values in sections:
         _section_heading(report, heading)
         _information_card(report, values)
 
-    _section_heading(report, "Órdenes y coordinación")
+    _section_heading(report, "Orders and coordination")
     if orders:
         order_table = report.add_table(rows=1, cols=3)
         order_table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -376,7 +351,7 @@ def export_word_report(
         widths = [Inches(1.55), Inches(4.15), Inches(1.4)]
         for cell, value, width in zip(
             order_table.rows[0].cells,
-            ["DESTINO", "SOLICITUD", "ESTADO"],
+            ["DESTINATION", "REQUEST", "STATUS"],
             widths,
             strict=True,
         ):
@@ -396,9 +371,9 @@ def export_word_report(
                 _shade(cell, background)
                 _set_cell_text(cell, value, size=8.3)
     else:
-        _information_card(report, ["No se registraron órdenes durante esta atención."])
+        _information_card(report, ["No orders were recorded during this encounter."])
 
-    _section_heading(report, "Línea temporal clínica")
+    _section_heading(report, "Clinical timeline")
     if events:
         timeline = report.add_table(rows=1, cols=3)
         timeline.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -406,7 +381,7 @@ def export_word_report(
         timeline_widths = [Inches(0.7), Inches(1.9), Inches(4.5)]
         for cell, value, width in zip(
             timeline.rows[0].cells,
-            ["HORA", "EVENTO", "DETALLE"],
+            ["TIME", "EVENT", "DETAIL"],
             timeline_widths,
             strict=True,
         ):
@@ -426,18 +401,18 @@ def export_word_report(
                 _shade(cell, background)
                 _set_cell_text(cell, value, size=8)
     else:
-        _information_card(report, ["No se registraron eventos clínicos relevantes."])
+        _information_card(report, ["No relevant clinical events were recorded."])
 
-    _section_heading(report, "Validación profesional")
+    _section_heading(report, "Clinician validation")
     signature_table = report.add_table(rows=1, cols=2)
     signature_table.alignment = WD_TABLE_ALIGNMENT.CENTER
     signature_values = [
-        ("REVISADO Y FIRMADO POR", document.signed_by or "Pendiente"),
+        ("REVIEWED AND SIGNED BY", document.signed_by or "Pending"),
         (
-            "FECHA DE VALIDACIÓN",
+            "VALIDATION DATE",
             document.signed_at.astimezone().strftime("%d/%m/%Y %H:%M")
             if document.signed_at
-            else "Pendiente",
+            else "Pending",
         ),
     ]
     for cell, (label, value) in zip(signature_table.rows[0].cells, signature_values, strict=True):
@@ -460,8 +435,8 @@ def export_word_report(
     notice.paragraph_format.space_before = Pt(9)
     notice.alignment = WD_ALIGN_PARAGRAPH.CENTER
     notice_run = notice.add_run(
-        "Documento de apoyo operativo. Requiere validación clínica "
-        "y no sustituye el expediente oficial."
+        "Operational support document. Requires clinical validation "
+        "and does not replace the official health record."
     )
     notice_run.italic = True
     notice_run.font.size = Pt(7.5)
@@ -469,11 +444,11 @@ def export_word_report(
 
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer_run = footer.add_run("PULSO  ·  CONFIDENCIAL  ·  Página ")
+    footer_run = footer.add_run("PULSO  ·  CONFIDENTIAL  ·  Page ")
     footer_run.font.size = Pt(7)
     footer_run.font.color.rgb = RGBColor.from_string(COLORS["muted"])
     _page_field(footer, "PAGE")
-    footer.add_run(" de ")
+    footer.add_run(" of ")
     _page_field(footer, "NUMPAGES")
     report.save(destination)
     return destination

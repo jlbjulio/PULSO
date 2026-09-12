@@ -36,7 +36,7 @@ function startBridge(): ChildProcessWithoutNullStreams {
     if (!waiting) return;
     try {
       const response = JSON.parse(line) as { ok: boolean; data?: unknown; error?: string };
-      if (!response.ok) throw new Error(response.error || "La operación no pudo completarse");
+      if (!response.ok) throw new Error(response.error || "The operation could not be completed");
       waiting.resolve(response.data);
     } catch (error) {
       waiting.reject(error instanceof Error ? error : new Error(String(error)));
@@ -44,7 +44,7 @@ function startBridge(): ChildProcessWithoutNullStreams {
   });
   bridge.on("exit", (code) => {
     activeResponse?.reject(
-      new Error(bridgeError.trim() || `El motor de PULSO finalizó con código ${code}`),
+      new Error(bridgeError.trim() || `The PULSO engine exited with code ${code}`),
     );
     activeResponse = undefined;
     bridge = null;
@@ -106,13 +106,13 @@ ipcMain.handle("pulso:save-recording", async (_, bytes: Uint8Array) => {
 ipcMain.handle("pulso:read-runtime-audio", async (_, requestedPath: string) => {
   const runtimeRoot = resolve(projectRoot, "runtime-data");
   const path = resolve(requestedPath);
-  if (!path.startsWith(`${runtimeRoot}\\`)) throw new Error("Ruta de audio no autorizada");
+  if (!path.startsWith(`${runtimeRoot}\\`)) throw new Error("Unauthorized audio path");
   return new Uint8Array(await readFile(path));
 });
 ipcMain.handle("pulso:show-export", (_, requestedPath: string) => {
   const exportRoot = resolve(projectRoot, "runtime-data", "exports");
   const path = resolve(requestedPath);
-  if (!path.startsWith(`${exportRoot}\\`)) throw new Error("Ruta de exportación no autorizada");
+  if (!path.startsWith(`${exportRoot}\\`)) throw new Error("Unauthorized export path");
   shell.showItemInFolder(path);
 });
 
@@ -125,7 +125,7 @@ app.whenReady().then(async () => {
     await createWindow();
   } catch (error) {
     dialog.showErrorBox(
-      "PULSO no pudo iniciar",
+      "PULSO could not start",
       error instanceof Error ? error.message : String(error),
     );
     app.quit();

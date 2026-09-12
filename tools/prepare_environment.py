@@ -21,18 +21,18 @@ def run(*command: str) -> None:
 def npm_executable() -> str:
     npm = shutil.which("npm.cmd") or shutil.which("npm")
     if not npm:
-        raise SystemExit("No se encontró npm en PATH.")
+        raise SystemExit("npm was not found in PATH.")
     return npm
 
 
 def node_version() -> tuple[int, int, int]:
     node = shutil.which("node")
     if not node or not npm_executable():
-        raise SystemExit("Instala Node.js 22.17 o superior antes de continuar.")
+        raise SystemExit("Install Node.js 22.17 or newer before continuing.")
     output = subprocess.check_output([node, "--version"], text=True).strip()
     match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", output)
     if not match:
-        raise SystemExit(f"No se pudo interpretar la versión de Node.js: {output}")
+        raise SystemExit(f"Could not parse the Node.js version: {output}")
     return tuple(int(value) for value in match.groups())
 
 
@@ -46,7 +46,7 @@ def validate_models() -> None:
                 if not (ROOT / value).exists():
                     missing.append(value)
     if missing:
-        raise SystemExit("Faltan modelos:\n" + "\n".join(missing))
+        raise SystemExit("Missing models:\n" + "\n".join(missing))
 
 
 def validate_rag_sources() -> None:
@@ -60,23 +60,23 @@ def validate_rag_sources() -> None:
         included += 1
         path = ROOT / "data" / "rag" / Path(source["local_path"])
         if not path.is_file():
-            failures.append(f"ausente: {source['filename']}")
+            failures.append(f"missing: {source['filename']}")
             continue
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         if digest != source["sha256"]:
-            failures.append(f"checksum inválido: {source['filename']}")
+            failures.append(f"invalid checksum: {source['filename']}")
     if failures:
-        raise SystemExit("Fuentes RAG inválidas:\n" + "\n".join(failures))
-    print(f"Fuentes RAG verificadas: {included}")
+        raise SystemExit("Invalid RAG sources:\n" + "\n".join(failures))
+    print(f"Verified RAG sources: {included}")
 
 
 def main() -> None:
     if os.environ.get("VIRTUAL_ENV") or sys.prefix != sys.base_prefix:
-        raise SystemExit("Sal del entorno virtual. Este proyecto usa Python sin .venv.")
+        raise SystemExit("Exit the virtual environment. This project uses system Python.")
     if (sys.version_info.major, sys.version_info.minor) < (3, 11):
-        raise SystemExit("Se requiere Python 3.11 o superior.")
+        raise SystemExit("Python 3.11 or newer is required.")
     if node_version() < MINIMUM_NODE:
-        raise SystemExit("Se requiere Node.js 22.17 o superior.")
+        raise SystemExit("Node.js 22.17 or newer is required.")
 
     run(sys.executable, "-m", "pip", "install", "-r", "python-requirements.txt")
     run(sys.executable, "-m", "pip", "install", "--editable", ".")
@@ -91,7 +91,7 @@ def main() -> None:
     run(npm, "run", "rag:reset")
     run(npm, "run", "rag:index")
     run(npm, "run", "check")
-    print("\nPULSO está listo. Ejecuta: npm run app")
+    print("\nPULSO is ready. Run: npm run app")
 
 
 if __name__ == "__main__":

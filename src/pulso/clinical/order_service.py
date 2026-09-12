@@ -41,7 +41,7 @@ class OrderService:
             destination=destination_for(event.type, request),
             request=request,
             state=OrderState.AWAITING_CONFIRMATION,
-            readback_text=f"Confirmar envío a {destination_for(event.type, request)}: {request}",
+            readback_text=f"Confirm dispatch to {destination_for(event.type, request)}: {request}",
             idempotency_key=digest,
         )
         return self.repository.save_order(order, actor=actor)

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "dist/electron/electron.js",
-  "description": "Copiloto local de operaciones clinicas para salas de urgencias",
+  "description": "Local clinical operations copilot for emergency departments",
   "scripts": {
     "setup": "python tools/prepare_environment.py",
     "app": "npm run desktop:build && node tools/launch-desktop.js",

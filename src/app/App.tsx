@@ -92,122 +92,89 @@ type ExportResult = {
 };
 
 const eventLabels: Record<string, string> = {
-  patient_report: "Relato relevante",
-  symptom: "Síntoma",
-  allergy: "Alergia",
-  medication_history: "Medicamento habitual",
-  vital_sign: "Signo vital",
-  exam_finding: "Hallazgo clínico",
-  clinical_assessment: "Evaluación clínica",
-  diagnosis: "Diagnóstico documentado",
-  medication_order: "Orden farmacológica",
-  medication_administration: "Medicamento administrado",
-  procedure_order: "Procedimiento solicitado",
-  procedure_performed: "Procedimiento realizado",
-  lab_order: "Laboratorio solicitado",
-  imaging_order: "Estudio de imagen solicitado",
-  consult_order: "Equipo o especialista solicitado",
-  result: "Resultado",
-  code_event: "Respuesta crítica activada",
-  transfer: "Traslado",
-  disposition: "Disposición",
-  handoff: "Transferencia clínica",
+  patient_report: "Relevant history",
+  symptom: "Symptom",
+  allergy: "Allergy",
+  medication_history: "Current medication",
+  vital_sign: "Vital sign",
+  exam_finding: "Clinical finding",
+  clinical_assessment: "Clinical assessment",
+  diagnosis: "Documented diagnosis",
+  medication_order: "Medication order",
+  medication_administration: "Medication administered",
+  procedure_order: "Procedure ordered",
+  procedure_performed: "Procedure performed",
+  lab_order: "Laboratory order",
+  imaging_order: "Imaging order",
+  consult_order: "Team or specialist request",
+  result: "Result",
+  code_event: "Critical response activated",
+  transfer: "Transfer",
+  disposition: "Disposition",
+  handoff: "Clinical handoff",
 };
 
 const fieldLabels: Record<string, string> = {
-  name: "Nombre",
-  request: "Solicitud",
-  fact: "Relato",
-  symptom: "Síntoma",
-  finding: "Hallazgo",
-  diagnosis: "Diagnóstico",
-  medication: "Medicamento",
-  dose: "Dosis",
-  route: "Vía",
-  frequency: "Frecuencia",
-  value: "Valor",
-  unit: "Unidad",
-  body_site: "Región",
-  destination: "Destino",
-  result: "Resultado",
-  status: "Estado",
-  explicit_command: "Comando confirmado",
+  name: "Name", request: "Request", fact: "History", symptom: "Symptom",
+  finding: "Finding", diagnosis: "Diagnosis", medication: "Medication",
+  dose: "Dose", route: "Route", frequency: "Frequency", value: "Value",
+  unit: "Unit", body_site: "Region", destination: "Destination",
+  result: "Result", status: "Status", explicit_command: "Confirmed command",
 };
 
 const stateLabels: Record<string, string> = {
-  reported: "Reportado",
-  observed: "Observado",
-  considered: "Considerado",
-  planned: "Planificado",
-  pending_confirmation: "Pendiente de confirmación",
-  awaiting_confirmation: "Requiere confirmación",
-  confirmed: "Confirmada",
-  dispatched: "Enviada",
-  accepted: "Recibida",
-  in_progress: "En ejecución",
-  administered: "Administrado",
-  completed: "Completada",
-  cancelled: "Cancelada",
-  denied: "Descartado",
-  failed: "Sin conexión",
-  unknown: "Por verificar",
+  reported: "Reported", observed: "Observed", considered: "Considered",
+  planned: "Planned", pending_confirmation: "Pending confirmation",
+  awaiting_confirmation: "Awaiting confirmation", confirmed: "Confirmed",
+  dispatched: "Dispatched", accepted: "Accepted", in_progress: "In progress",
+  administered: "Administered", completed: "Completed", cancelled: "Cancelled",
+  denied: "Denied", failed: "Disconnected", unknown: "Unverified",
 };
 
 const speakerLabels: Record<string, string> = {
-  patient: "Paciente",
-  physician: "Profesional",
-  nurse: "Enfermería",
-  paramedic: "Paramédico",
-  family: "Familiar",
+  patient: "Patient", physician: "Clinician", nurse: "Nurse",
+  paramedic: "Paramedic", family: "Family member",
   system: "PULSO",
-  unknown: "Interlocutor",
+  unknown: "Speaker",
 };
 
 const languageLabels: Record<string, string> = {
-  de: "Alemán",
-  cs: "Checo",
-  en: "Inglés",
-  es: "Español",
-  fi: "Finés",
-  fr: "Francés",
-  it: "Italiano",
-  nl: "Neerlandés",
-  pt: "Portugués",
-  sv: "Sueco",
+  de: "German", cs: "Czech", en: "English", es: "Spanish", fi: "Finnish",
+  fr: "French", it: "Italian", nl: "Dutch", pt: "Portuguese", sv: "Swedish",
 };
 
 const demoScenarios = [
   {
-    label: "Trauma multilingüe",
-    description: "Barrera de idioma, trauma y coordinación con imagenología.",
+    label: "Multilingual trauma",
+    description: "Language barrier, trauma response, and imaging coordination.",
     patient: "I fell from a ladder. My chest hurts and I cannot breathe well.",
     physician:
       "Paciente con dolor torácico y dificultad respiratoria tras caída. Pulso, activar equipo de trauma y solicitar radiografía portátil de tórax.",
   },
   {
-    label: "Código ictus",
-    description: "Déficit neurológico súbito y activación del equipo especializado.",
+    label: "Stroke code",
+    description: "Sudden neurological deficit and specialist team activation.",
     patient: "Mi brazo derecho se quedó sin fuerza y me cuesta hablar.",
     physician:
       "Déficit neurológico focal de inicio súbito. Pulso, activar equipo Código Ictus y solicitar tomografía simple de cráneo.",
   },
   {
-    label: "Alerta de sepsis",
-    description: "Síntomas sistémicos, evaluación y solicitud urgente de laboratorio.",
+    label: "Sepsis alert",
+    description: "Systemic symptoms, assessment, and urgent laboratory request.",
     patient: "Tengo fiebre, escalofríos y me siento confundido desde anoche.",
     physician:
       "Hipotensión y alteración del estado mental con sospecha de infección. Pulso, activar equipo de sepsis y solicitar laboratorio urgente.",
   },
   {
-    label: "Crisis de salud mental",
-    description: "Evaluación segura y solicitud de apoyo especializado.",
+    label: "Mental health crisis",
+    description: "Safety assessment and specialist support request.",
     patient: "Estoy muy angustiado y siento que puedo hacerme daño.",
     physician:
       "Paciente con riesgo de autolesión, mantener acompañamiento continuo. Pulso, solicitar Psicología y Psiquiatría de Urgencias.",
   },
   {
-    label: "Código azul",
-    description: "Paro cardiorrespiratorio y activación inmediata del equipo de respuesta.",
+    label: "Code Blue",
+    description: "Cardiorespiratory arrest and immediate response-team activation.",
     patient: "El paciente no responde y no presenta respiración normal.",
     physician:
       "Paciente inconsciente, sin pulso y sin respiración. Pulso, activar Código Azul e iniciar reanimación cardiopulmonar.",
@@ -352,10 +319,10 @@ function App() {
   }
 
   async function startEncounter() {
-    if (demo) await request({ action: "reset_demo" }, "Preparando demostración");
+    if (demo) await request({ action: "reset_demo" }, "Preparing demo");
     const result = await request<Snapshot>(
       { action: "start", bed, clinician_id: clinician },
-      "Iniciando atención",
+      "Starting encounter",
     );
     setSnapshot(result);
     setPatientRef(result.encounter.patient_ref);
@@ -379,7 +346,7 @@ function App() {
         language: speaker === "physician" ? "es" : "auto",
         actor: clinician,
       },
-      "Analizando hechos clínicos",
+      "Extracting clinical facts",
     );
     setSnapshot(result);
   }
@@ -415,7 +382,7 @@ function App() {
           audio_path: path,
           actor: clinician,
         },
-        "Analizando audio clínico",
+        "Processing clinical audio",
         blocking,
       );
       setSnapshot(result);
@@ -519,7 +486,7 @@ function App() {
         text: utterance.translated_text,
         language: targetLanguage,
       },
-      "Preparando audio",
+      "Preparing audio",
       blocking,
     );
     const bytes = Uint8Array.from(await window.pulso.readRuntimeAudio(result.output));
@@ -551,7 +518,7 @@ function App() {
         actor: clinician,
         signature,
       },
-      `Enviando a ${signatureOrder.destination}`,
+      `Dispatching to ${signatureOrder.destination}`,
     );
     setSnapshot(result);
     const orderId = signatureOrder.id;
@@ -561,7 +528,7 @@ function App() {
         await new Promise((resolveDelay) => window.setTimeout(resolveDelay, delay));
         result = await request<Snapshot>(
           { action: "simulate_step", encounter_id: encounter.id, order_id: orderId },
-          "Actualizando respuesta simulada",
+          "Updating simulated response",
         );
         setSnapshot(result);
       }
@@ -588,7 +555,7 @@ function App() {
       fhir_path: string;
     }>(
       { action: "close", encounter_id: encounter.id, actor: clinician, signature },
-      "Generando informe clínico",
+      "Generating clinical report",
     );
     setSnapshot(result.snapshot);
     setExports({ reportPath: result.report_path, fhirPath: result.fhir_path });
@@ -611,23 +578,23 @@ function App() {
         <main className="onboarding">
           <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="hero-copy">
             <h1>PULSO</h1>
-            <p>Captura hechos relevantes y coordina la atención clínica en tiempo real.</p>
+            <p>Capture relevant facts and coordinate emergency care in real time.</p>
           </motion.section>
           <motion.section initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="start-card">
             <div className="card-heading">
-              <div><span className="section-kicker">Nueva atención</span><h2>Preparar cubículo</h2></div>
+              <div><span className="section-kicker">New encounter</span><h2>Prepare treatment bay</h2></div>
               <Stethoscope size={24} />
             </div>
             <div className="field-grid">
-              <label>Cubículo<input value={bed} onChange={(event) => setBed(event.target.value)} /></label>
-              <label>Profesional<input value={clinician} onChange={(event) => setClinician(event.target.value)} /></label>
+              <label>Treatment bay<input value={bed} onChange={(event) => setBed(event.target.value)} /></label>
+              <label>Clinician<input value={clinician} onChange={(event) => setClinician(event.target.value)} /></label>
             </div>
             <div className="demo-switch">
-              <div><strong>Demostración</strong><small>Casos sintéticos y respuestas hospitalarias simuladas</small></div>
-              <button className={demo ? "switch active" : "switch"} onClick={() => setDemo(!demo)} aria-label="Cambiar modo"><span /></button>
+              <div><strong>Demo mode</strong><small>Synthetic cases and simulated hospital responses</small></div>
+              <button className={demo ? "switch active" : "switch"} onClick={() => setDemo(!demo)} aria-label="Toggle mode"><span /></button>
             </div>
             <button className="primary wide" onClick={startEncounter} disabled={Boolean(busy) || !bed.trim() || !clinician.trim()}>
-              Iniciar atención <ArrowUpRight size={18} />
+              Start encounter <ArrowUpRight size={18} />
             </button>
             {message && <p className="error-text">{message}</p>}
           </motion.section>
@@ -642,9 +609,9 @@ function App() {
     <div className={isCritical ? "app-shell critical" : "app-shell"}>
       <aside className="sidebar">
         <Logo />
-        <nav><div className="nav-item active"><Activity size={19} /><span>Atención</span></div></nav>
+        <nav><div className="nav-item active"><Activity size={19} /><span>Encounter</span></div></nav>
         <div className="sidebar-bottom">
-          <div className="profile"><span>{clinician.slice(0, 2).toUpperCase()}</span><div><strong>{clinician}</strong><small>Profesional activo</small></div></div>
+          <div className="profile"><span>{clinician.slice(0, 2).toUpperCase()}</span><div><strong>{clinician}</strong><small>Active clinician</small></div></div>
         </div>
       </aside>
 
@@ -652,18 +619,18 @@ function App() {
         <header className="topbar">
           <div className="patient-title">
             <div className="patient-avatar"><UserRound size={20} /></div>
-            <div><span>{encounter.patient_ref}</span><small>{encounter.bed} · Urgencias</small></div>
-            <button className="identity-button" onClick={() => setIdentityOpen(true)}><IdCard size={15} /> Identificar</button>
+            <div><span>{encounter.patient_ref}</span><small>{encounter.bed} · Emergency</small></div>
+            <button className="identity-button" onClick={() => setIdentityOpen(true)}><IdCard size={15} /> Identify</button>
             {(!demo || isCritical) && (
               <span className={`encounter-state ${isCritical ? "red" : ""}`}>
                 <span className="status-dot" />
-                {isCritical ? "RESPUESTA CRÍTICA" : recording ? "ESCUCHA ACTIVA" : "MICRÓFONO SILENCIADO"}
+                {isCritical ? "CRITICAL RESPONSE" : recording ? "ACTIVE LISTENING" : "MICROPHONE MUTED"}
               </span>
             )}
           </div>
           <div className="top-actions">
-            {demo && <span className="demo-label">DEMOSTRACIÓN</span>}
-            <button className="ghost" onClick={closeEncounter} disabled={encounter.state === "closed"}><BadgeCheck size={17} /> Finalizar</button>
+            {demo && <span className="demo-label">DEMO</span>}
+            <button className="ghost" onClick={closeEncounter} disabled={encounter.state === "closed"}><BadgeCheck size={17} /> Finish</button>
           </div>
         </header>
 
@@ -671,17 +638,17 @@ function App() {
           <section className="timeline-panel">
             <div className="panel-header">
               <div>
-                <span className="section-kicker">Atención en curso</span>
-                <h2>{activeView === "conversation" ? "Conversación en vivo" : "Historia clínica relevante"}</h2>
+                <span className="section-kicker">Active encounter</span>
+                <h2>{activeView === "conversation" ? "Live conversation" : "Relevant clinical record"}</h2>
               </div>
               <div className="panel-tools">
                 {backgroundActivity && <span className="background-status"><span />{backgroundActivity}</span>}
                 <div className="view-tabs">
                   <button className={activeView === "conversation" ? "active" : ""} onClick={() => setActiveView("conversation")}>
-                    <MessageSquareText size={13} /> Conversación <span>{snapshot.utterances.length}</span>
+                    <MessageSquareText size={13} /> Conversation <span>{snapshot.utterances.length}</span>
                   </button>
                   <button className={activeView === "clinical" ? "active" : ""} onClick={() => setActiveView("clinical")}>
-                    <Activity size={13} /> Registro clínico <span>{snapshot.events.length}</span>
+                    <Activity size={13} /> Clinical record <span>{snapshot.events.length}</span>
                   </button>
                 </div>
               </div>
@@ -689,7 +656,7 @@ function App() {
             {activeView === "conversation" ? (
               <div className="conversation" ref={conversationRef}>
                 {snapshot.utterances.length === 0 ? (
-                  <div className="empty-state"><MessageSquareText size={28} /><h3>Escuchando la conversación</h3><p>Las intervenciones aparecerán aquí; el informe conservará únicamente la información clínica relevante.</p></div>
+                  <div className="empty-state"><MessageSquareText size={28} /><h3>Listening to the conversation</h3><p>Utterances appear here; the report preserves only clinically relevant information.</p></div>
                 ) : snapshot.utterances.map((utterance) => {
                   const targetLanguage = translationTarget(utterance, encounter.language);
                   return (
@@ -706,7 +673,7 @@ function App() {
                         <div className="utterance-translation">
                           <div><Languages size={13} /><span>{languageLabels[targetLanguage] || targetLanguage.toUpperCase()}</span></div>
                           <p>{utterance.translated_text}</p>
-                          <button onClick={() => playTranslation(utterance, encounter.language)}><Volume2 size={14} /> Escuchar</button>
+                          <button onClick={() => playTranslation(utterance, encounter.language)}><Volume2 size={14} /> Listen</button>
                         </div>
                       )}
                     </motion.article>
@@ -716,14 +683,14 @@ function App() {
             ) : (
               <div className="timeline">
                 {latestEvents.length === 0 ? (
-                  <div className="empty-state"><Activity size={28} /><h3>Sin eventos clínicos</h3><p>Las preguntas y la conversación general permanecen visibles en Conversación, pero no se incorporan al registro clínico.</p></div>
+                  <div className="empty-state"><Activity size={28} /><h3>No clinical events</h3><p>Questions and general conversation remain visible in Conversation but are not added to the clinical record.</p></div>
                 ) : latestEvents.map((event, index) => (
                   <motion.article initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={event.id} className="timeline-event">
                     <div className={`event-node ${event.actionable ? "action" : ""}`}>{event.actionable ? <Radio size={14} /> : <Check size={14} />}</div>
                     <div className="event-body">
                       <div><strong>{eventLabels[event.type] || cleanText(event.type)}</strong><time>{shortTime(event.created_at)}</time></div>
                       <p>{payloadText(event.payload)}</p>
-                      <div className="event-meta"><span>{stateLabels[event.state] || cleanText(event.state)}</span>{event.confidence != null && <span>{Math.round(event.confidence * 100)}% confianza</span>}</div>
+                      <div className="event-meta"><span>{stateLabels[event.state] || cleanText(event.state)}</span>{event.confidence != null && <span>{Math.round(event.confidence * 100)}% confidence</span>}</div>
                     </div>
                     {index < latestEvents.length - 1 && <span className="event-line" />}
                   </motion.article>
@@ -732,36 +699,36 @@ function App() {
             )}
             {demo ? (
               <section className="demo-console">
-                <div className="demo-console-heading"><div><strong>Casos de demostración</strong><span>Selecciona un caso para ejecutar ambas intervenciones.</span></div><button className={recording ? "record-button active" : "record-button"} onClick={toggleDemoRecording}>{recording ? <CircleStop size={17} /> : <Mic size={17} />}{recording ? "Detener demo en vivo" : "Demo en vivo"}</button></div>
+                <div className="demo-console-heading"><div><strong>Demo cases</strong><span>Select a case to run both sides of the encounter.</span></div><button className={recording ? "record-button active" : "record-button"} onClick={toggleDemoRecording}>{recording ? <CircleStop size={17} /> : <Mic size={17} />}{recording ? "Stop live demo" : "Live demo"}</button></div>
                 <div className="scenario-grid">
                   {demoScenarios.map((scenario, index) => (
                     <button key={scenario.label} className={activeScenario === index ? "selected" : ""} onClick={() => runScenario(index)} disabled={Boolean(runningScenario)}>
-                      <strong>{scenario.label}</strong><span>{scenario.description}</span>{runningScenario === scenario.label && <small>Ejecutando…</small>}
+                      <strong>{scenario.label}</strong><span>{scenario.description}</span>{runningScenario === scenario.label && <small>Running…</small>}
                     </button>
                   ))}
                 </div>
-                {activeScenario !== null && <div className="demo-script"><div><small>Paciente</small><p>{demoScenarios[activeScenario].patient}</p></div><div><small>Profesional</small><p>{demoScenarios[activeScenario].physician}</p></div></div>}
+                {activeScenario !== null && <div className="demo-script"><div><small>Patient</small><p>{demoScenarios[activeScenario].patient}</p></div><div><small>Clinician</small><p>{demoScenarios[activeScenario].physician}</p></div></div>}
               </section>
             ) : (
-              <section className="live-bar"><span className="live-wave"><i /><i /><i /><i /></span><div><strong>{recording ? "Micrófono activo" : "Micrófono silenciado"}</strong><small>{recording ? "La captura continúa durante toda la atención y conserva únicamente los eventos relevantes." : "La escucha está pausada hasta que vuelvas a activarla."}</small></div><button className={recording ? "record-button active" : "record-button"} onClick={toggleOfficialListening}>{recording ? <MicOff size={17} /> : <Mic size={17} />}{recording ? "Silenciar" : "Reactivar"}</button></section>
+              <section className="live-bar"><span className="live-wave"><i /><i /><i /><i /></span><div><strong>{recording ? "Microphone active" : "Microphone muted"}</strong><small>{recording ? "Capture continues throughout the encounter and preserves only relevant events." : "Listening is paused until you resume it."}</small></div><button className={recording ? "record-button active" : "record-button"} onClick={toggleOfficialListening}>{recording ? <MicOff size={17} /> : <Mic size={17} />}{recording ? "Mute" : "Resume"}</button></section>
             )}
           </section>
 
           <aside className="orders-panel">
-            <div className="panel-header"><div><span className="section-kicker">Lazo cerrado</span><h2>Coordinación</h2></div><span className="count-badge">{snapshot.orders.length}</span></div>
+            <div className="panel-header"><div><span className="section-kicker">Closed loop</span><h2>Coordination</h2></div><span className="count-badge">{snapshot.orders.length}</span></div>
             <div className="orders-list">
               {snapshot.orders.length === 0 ? (
-                <div className="orders-empty"><Radio size={24} /><p>Las órdenes explícitas aparecerán aquí para revisión y firma.</p><small>Di “Pulso” antes de una orden o activación.</small></div>
+                <div className="orders-empty"><Radio size={24} /><p>Explicit orders appear here for review and signature.</p><small>Say “Pulso” before an order or activation.</small></div>
               ) : snapshot.orders.map((order) => {
                 const isDone = order.state === "completed";
                 const isCancelled = order.state === "cancelled";
                 const simulated = snapshot.transitions.some((item) => item.order_id === order.id && item.actor.startsWith("demo."));
                 return (
                   <motion.article layout key={order.id} className={`order-card ${isDone ? "done" : ""}`}>
-                    <div className="order-top"><span className="destination"><Radio size={14} />{order.destination}</span>{simulated && <span className="simulated">SIMULADO</span>}</div>
+                    <div className="order-top"><span className="destination"><Radio size={14} />{order.destination}</span>{simulated && <span className="simulated">SIMULATED</span>}</div>
                     <h3>{cleanText(order.request)}</h3>
                     <div className="order-state"><span className={`order-state-icon ${order.state}`}>{isDone ? <Check size={13} /> : isCancelled ? <X size={13} /> : <Activity size={13} />}</span><strong>{stateLabels[order.state] || cleanText(order.state)}</strong></div>
-                    {order.state === "awaiting_confirmation" && <div className="order-actions"><button className="confirm" onClick={() => setSignatureOrder(order)}>Revisar y firmar</button><button className="cancel" onClick={() => cancelOrder(order)}><XCircle size={16} /></button></div>}
+                    {order.state === "awaiting_confirmation" && <div className="order-actions"><button className="confirm" onClick={() => setSignatureOrder(order)}>Review and sign</button><button className="cancel" onClick={() => cancelOrder(order)}><XCircle size={16} /></button></div>}
                     {!['awaiting_confirmation', 'completed', 'cancelled'].includes(order.state) && <div className="progress-track"><span className={`progress-fill ${order.state}`} /></div>}
                   </motion.article>
                 );
@@ -776,15 +743,15 @@ function App() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {signatureOrder && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="modal" initial={{ scale: 0.97, y: 10 }} animate={{ scale: 1, y: 0 }}><button className="modal-close" onClick={() => setSignatureOrder(null)}><X size={18} /></button><span className="modal-icon"><ShieldCheck size={22} /></span><span className="section-kicker">Confirmación clínica</span><h2>Revisar antes de enviar</h2><div className="readback"><small>Destino</small><strong>{signatureOrder.destination}</strong><p>{cleanText(signatureOrder.request)}</p></div><label>Firma del profesional<input value={signature} onChange={(event) => setSignature(event.target.value)} /></label><p className="safety-copy">La orden se envía únicamente después de validar contenido, destino e identidad profesional.</p><button className="primary wide" onClick={confirmOrder}>Confirmar y enviar</button></motion.div></motion.div>}
+        {signatureOrder && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="modal" initial={{ scale: 0.97, y: 10 }} animate={{ scale: 1, y: 0 }}><button className="modal-close" onClick={() => setSignatureOrder(null)}><X size={18} /></button><span className="modal-icon"><ShieldCheck size={22} /></span><span className="section-kicker">Clinical confirmation</span><h2>Review before dispatch</h2><div className="readback"><small>Destination</small><strong>{signatureOrder.destination}</strong><p>{cleanText(signatureOrder.request)}</p></div><label>Clinician signature<input value={signature} onChange={(event) => setSignature(event.target.value)} /></label><p className="safety-copy">The order is dispatched only after its content, destination, and clinician identity are verified.</p><button className="primary wide" onClick={confirmOrder}>Confirm and dispatch</button></motion.div></motion.div>}
       </AnimatePresence>
 
       <AnimatePresence>
-        {identityOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="modal compact" initial={{ scale: 0.97, y: 10 }} animate={{ scale: 1, y: 0 }}><button className="modal-close" onClick={() => setIdentityOpen(false)}><X size={18} /></button><span className="modal-icon"><IdCard size={22} /></span><span className="section-kicker">Identificación</span><h2>Actualizar paciente</h2><label>Nombre o referencia<input value={patientRef} onChange={(event) => setPatientRef(event.target.value)} autoFocus /></label><button className="primary wide" onClick={identifyPatient}>Guardar identificación</button></motion.div></motion.div>}
+        {identityOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="modal compact" initial={{ scale: 0.97, y: 10 }} animate={{ scale: 1, y: 0 }}><button className="modal-close" onClick={() => setIdentityOpen(false)}><X size={18} /></button><span className="modal-icon"><IdCard size={22} /></span><span className="section-kicker">Identification</span><h2>Update patient</h2><label>Name or reference<input value={patientRef} onChange={(event) => setPatientRef(event.target.value)} autoFocus /></label><button className="primary wide" onClick={identifyPatient}>Save identification</button></motion.div></motion.div>}
       </AnimatePresence>
 
       <AnimatePresence>
-        {exports && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="modal export-modal" initial={{ scale: 0.97, y: 10 }} animate={{ scale: 1, y: 0 }}><span className="modal-icon"><FileText size={22} /></span><span className="section-kicker">Atención finalizada</span><h2>Informe clínico generado</h2><p>El informe estructurado de Word y el paquete FHIR quedaron guardados en el equipo.</p><div className="export-actions"><button className="primary" onClick={() => window.pulso.showExport(exports.reportPath)}>Ver Word</button><button className="secondary" onClick={() => window.pulso.showExport(exports.fhirPath)}>Ver FHIR</button><button className="secondary" onClick={newEncounter}>Nueva atención</button></div></motion.div></motion.div>}
+        {exports && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="modal export-modal" initial={{ scale: 0.97, y: 10 }} animate={{ scale: 1, y: 0 }}><span className="modal-icon"><FileText size={22} /></span><span className="section-kicker">Encounter complete</span><h2>Clinical report generated</h2><p>The structured Word report and FHIR bundle were saved locally.</p><div className="export-actions"><button className="primary" onClick={() => window.pulso.showExport(exports.reportPath)}>Open Word report</button><button className="secondary" onClick={() => window.pulso.showExport(exports.fhirPath)}>Open FHIR bundle</button><button className="secondary" onClick={newEncounter}>New encounter</button></div></motion.div></motion.div>}
       </AnimatePresence>
 
       {message && <button className="toast" onClick={() => setMessage("")}><span>{message}</span><X size={15} /></button>}

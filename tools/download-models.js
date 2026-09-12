@@ -103,7 +103,7 @@ async function cachedFile(descriptor) {
       return path;
   }
   throw new Error(
-    `QVAC descargó ${descriptor.name}, pero no se encontró un archivo válido.`,
+    `QVAC downloaded ${descriptor.name}, but no valid file was found.`,
   );
 }
 
@@ -138,7 +138,7 @@ async function ensureRegistryModel(descriptor, relativeDestination) {
       descriptor.sha256Checksum,
     ))
   ) {
-    throw new Error(`Falló la verificación de ${relativeDestination}.`);
+    throw new Error(`Verification failed for ${relativeDestination}.`);
   }
   console.log(`OK ${relativeDestination}`);
 }
@@ -165,7 +165,7 @@ async function ensureRemoteModel(asset) {
   }
   if (!response.ok || !response.body) {
     throw new Error(
-      `No se pudo descargar ${asset.destination}: HTTP ${response.status}`,
+      `Could not download ${asset.destination}: HTTP ${response.status}`,
     );
   }
   const append = offset > 0 && response.status === 206;
@@ -188,7 +188,7 @@ async function ensureRemoteModel(asset) {
   );
 
   if (!(await valid(partial, asset.size, asset.sha256))) {
-    throw new Error(`Checksum o tamaño inválido para ${asset.destination}.`);
+    throw new Error(`Invalid checksum or size for ${asset.destination}.`);
   }
   await rm(destination, { force: true });
   await rename(partial, destination);
@@ -200,7 +200,7 @@ try {
     await ensureRegistryModel(descriptor, destination);
   }
   for (const asset of remoteAssets) await ensureRemoteModel(asset);
-  console.log("Todos los modelos de PULSO están listos.");
+  console.log("All PULSO models are ready.");
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

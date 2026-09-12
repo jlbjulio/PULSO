@@ -34,8 +34,8 @@ def sha256(path: Path) -> str:
 
 def clean(text: str) -> str:
     redacted = EMAIL.sub("[correo omitido]", text)
-    redacted = INTERNATIONAL_PHONE.sub("[teléfono omitido]", redacted)
-    redacted = LABELED_PHONE.sub("[teléfono omitido]", redacted)
+    redacted = INTERNATIONAL_PHONE.sub("[phone removed]", redacted)
+    redacted = LABELED_PHONE.sub("[phone removed]", redacted)
     return re.sub(r"\s+", " ", redacted).strip()
 
 

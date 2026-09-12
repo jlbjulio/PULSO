@@ -43,17 +43,17 @@ def main() -> None:
         try:
             download(str(source["source_url"]), temporary)
             if expected and digest(temporary) != expected:
-                raise ValueError("el checksum no coincide con el manifiesto")
+                raise ValueError("checksum does not match the manifest")
             temporary.replace(destination)
             downloaded += 1
             time.sleep(0.1)
         except Exception as error:
             temporary.unlink(missing_ok=True)
             failures.append(f"{source['id']}: {error}")
-    print(f"Fuentes verificadas: {verified}")
-    print(f"Fuentes descargadas: {downloaded}")
+    print(f"Verified sources: {verified}")
+    print(f"Downloaded sources: {downloaded}")
     if failures:
-        raise SystemExit("No se pudieron preparar estas fuentes:\n" + "\n".join(failures))
+        raise SystemExit("These sources could not be prepared:\n" + "\n".join(failures))
 
 
 if __name__ == "__main__":

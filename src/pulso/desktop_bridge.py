@@ -141,7 +141,7 @@ def process(request: dict[str, Any]) -> Any:
         orders.cancel(
             str(request["order_id"]),
             actor=str(request["actor"]),
-            reason=str(request.get("reason", "Cancelada por el profesional")),
+            reason=str(request.get("reason", "Cancelled by clinician")),
         )
         return snapshot(repository, encounter_id)
     if action == "simulate_step":
